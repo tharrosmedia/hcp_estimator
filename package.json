@@ -13,7 +13,8 @@
     "build:frontend": "pnpm --filter frontend build",
     "build": "pnpm build:backend && pnpm build:frontend",
     "start:backend": "pnpm --filter hcp-estimator-backend start",
-    "start:frontend": "pnpm --filter frontend start"
+    "start:frontend": "pnpm --filter frontend start",
+    "start": "echo 'Monorepo: deploy backend and frontend as separate Railway services. Set Root Directory to backend or frontend.' && exit 1"
   },
   "packageManager": "pnpm@10.15.0"
 }

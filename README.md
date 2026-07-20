@@ -115,7 +115,9 @@ This is a pnpm monorepo. **You must deploy the backend and frontend as separate 
 **Important**:
 - Deploy backend first, then use its public URL for the frontend's `NEXT_PUBLIC_API_URL`.
 - Railway will prompt you to set the Root Directory if it detects the monorepo (as seen in the error "Set the Root Directory to the subdirectory...").
-- Use the `railway.json` files included in each directory for explicit config.
+- Use the `railway.json` and `railpack.json` files included in each directory for explicit config (Railpack is used by Railway).
+- We added a dummy "start" script at the root package.json so that if the monorepo root is used for build, detection passes (the actual start is overridden by config or sub package.json).
+- If you still see "No start command detected", in the Railway service settings, explicitly set the **Start Command** to the one above (e.g. `pnpm --filter hcp-estimator-backend start`).
 
 ### Other Platforms
 - **Vercel**: Great for frontend. Set root directory to `frontend`. Use serverless functions or separate backend.
