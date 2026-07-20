@@ -83,9 +83,70 @@ Currently uses configurable values from DB settings (no hard-coded defaults):
 - markup, tax_rate, labor_rate, financing_fee, etc.
 
 ## Deployment Notes
-- Frontend can be deployed to Vercel.
-- Backend to Railway / Fly.io / Render (supports cron).
-- Use Neon for Postgres.
+
+This is a pnpm monorepo. **You must deploy the backend and frontend as separate services** on Railway (or similar platforms).
+
+### Railway Deployment (Recommended)
+
+1. **Create two services in your Railway project** (one for backend, one for frontend).
+
+2. **For the Backend service**:
+   - Connect your GitHub repo.
+   - Set **Root Directory** to `backend`.
+   - Railway will auto-detect `package.json` and use Nixpacks.
+   - Build Command (if needed): `pnpm --filter hcp-estimator-backend install --frozen-lockfile && pnpm --filter hcp-estimator-backend build`
+   - Start Command: `pnpm --filter hcp-estimator-backend start`
+   - Add environment variables:
+     - `DATABASE_URL` (your Neon Postgres URL)
+     - `JWT_SECRET`
+     - `JWT_REFRESH_SECRET`
+     - `FRONTEND_URL` (the public URL of your frontend service, e.g. `https://your-frontend.railway.app`)
+     - `HCP_BASE_URL=https://api.housecallpro.com` (optional)
+     - Optionally set production values (no `DEV_BYPASS`)
+
+3. **For the Frontend service**:
+   - Connect the same GitHub repo.
+   - Set **Root Directory** to `frontend`.
+    - Build Command (if needed): `pnpm --filter frontend install --frozen-lockfile && pnpm --filter frontend build`
+    - Start Command: `pnpm --filter frontend start`
+    - Add environment variables:
+      - `NEXT_PUBLIC_API_URL` = `https://your-backend-service.railway.app/api` (use the backend's public domain)
+
+**Important**:
+- Deploy backend first, then use its public URL for the frontend's `NEXT_PUBLIC_API_URL`.
+- Railway will prompt you to set the Root Directory if it detects the monorepo (as seen in the error "Set the Root Directory to the subdirectory...").
+- Use the `railway.json` files included in each directory for explicit config.
+
+### Other Platforms
+- **Vercel**: Great for frontend. Set root directory to `frontend`. Use serverless functions or separate backend.
+- **Render / Fly.io**: Similar root directory + build/start commands.
+- Always set `NODE_ENV=production` and strong secrets.
+
+After deployment:
+- The backend runs on its own port (Railway assigns one).
+- Frontend proxies API calls via `NEXT_PUBLIC_API_URL`.
+
+## Development
+
+Use pnpm from the root for monorepo commands:
+
+```bash
+pnpm install                 # installs for both
+pnpm dev:backend
+pnpm dev:frontend
+```
+
+Or cd into subdirs:
+
+```bash
+# Backend
+cd backend
+pnpm dev
+
+# Frontend
+cd frontend
+pnpm dev
+```
 
 ## Development
 
