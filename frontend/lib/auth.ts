@@ -60,7 +60,7 @@ export async function handleRefreshToken(body: { refreshToken?: string }) {
   const accessToken = signAccessToken({
     userId: user.id,
     email: user.email,
-    role: user.role as UserRole,
+    role: (user.role as string).toLowerCase() as UserRole,
   });
 
   return { accessToken, status: 200 };

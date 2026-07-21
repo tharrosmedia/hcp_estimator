@@ -52,6 +52,9 @@ export async function findOrCreateUser(email: string, name?: string): Promise<an
     }).returning();
     user = newUser;
   }
+  if (user) {
+    user.role = (user.role as string).toLowerCase() as any;
+  }
   return user;
 }
 
