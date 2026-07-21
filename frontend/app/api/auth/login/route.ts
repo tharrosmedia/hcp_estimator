@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createMagicToken, findOrCreateUser, signAccessToken, signRefreshToken } from '@/lib/services/auth';
-import { env } from '@/lib/env';
+import { createMagicToken } from '@/lib/services/auth';
 
 export async function POST(request: NextRequest) {
   const { email, name } = await request.json();
@@ -13,13 +12,13 @@ export async function POST(request: NextRequest) {
   const origin = process.env.FRONTEND_URL || 'http://localhost:3000';
   const magicLink = `${origin}/login?token=${token}`;
 
-  if (env.DEV_BYPASS) {
-    console.log(`[DEV] Magic link for ${email}: ${magicLink}`);
-  }
+  // For now (internal tool, email-only no password): always return token so it auto-logs in
+  // The link is also logged to Railway console
+  console.log(`[LOGIN] Magic link for ${email}: ${magicLink}`);
 
-  // For MVP we return the token so frontend can auto-login in dev
   return NextResponse.json({
-    message: 'Magic link sent (check console in dev)',
-    ...(env.DEV_BYPASS ? { devToken: token, magicLink } : {}),
+    message: 'Logged in (magic link for reference)',
+    devToken: token,
+    magicLink,
   });
 }

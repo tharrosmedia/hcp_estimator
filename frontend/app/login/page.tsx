@@ -72,7 +72,7 @@ export default function LoginPage() {
               />
             </div>
             <Button type="submit" className="w-full btn-large" disabled={loading}>
-              {loading ? 'Sending...' : 'Send Magic Link'}
+              {loading ? 'Logging in...' : 'Log in with Email'}
             </Button>
           </form>
 
