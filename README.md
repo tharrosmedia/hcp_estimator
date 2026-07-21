@@ -3,8 +3,7 @@
 Mobile-first web application for creating HVAC/ductless estimates. Built for sales teams working in the field with Housecall Pro.
 
 ## Tech Stack
-- **Frontend**: Next.js (App Router), TypeScript, Tailwind, shadcn/ui components, Zustand, PWA-ready
-- **Backend**: Node + Express + TypeScript, Drizzle ORM + Neon Postgres
+- **Full-stack**: Next.js (App Router), TypeScript, Tailwind, shadcn/ui components, Zustand, PWA-ready + Drizzle ORM + Neon Postgres (API routes)
 - **Auth**: Passwordless magic link (JWT + refresh)
 - **Integrations**: Housecall Pro API (per-user keys)
 
@@ -33,34 +32,27 @@ git clone https://github.com/tharrosmedia/hcp_estimator.git
 cd hcp_estimator
 ```
 
-### 2. Backend
+### 2. Run the app
 ```bash
-cd backend
-cp .env.example .env
-# Edit .env with your DATABASE_URL, JWT secrets, etc.
+cp frontend/.env.example frontend/.env
+# Edit .env with your DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, etc.
 
 pnpm install
-pnpm db:push          # or drizzle-kit push
+pnpm --filter frontend db:push   # or npx drizzle-kit push (from frontend)
 pnpm dev
 ```
 
-Backend runs on http://localhost:4000
-
-### 3. Frontend
-```bash
-cd ../frontend
-pnpm install
-pnpm dev
-```
-
-Frontend runs on http://localhost:3000
+App runs on http://localhost:3000
 
 Login with any email (dev mode will show token in console).
 
 ## Environment Variables
 
-See `backend/.env.example` and add to frontend as needed:
-- `NEXT_PUBLIC_API_URL=http://localhost:4000/api`
+See `frontend/.env.example`:
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- (optional) `HCP_BASE_URL`, `DEV_BYPASS`, `CRON_SCHEDULE`
 
 ## Housecall Pro Integration
 
@@ -73,94 +65,79 @@ See `backend/.env.example` and add to frontend as needed:
 
 ## Adding New Install Rules
 
-Use the Admin UI or seed directly in `backend/src/services/rule.service.ts` → `seedDefaultRules`.
+Use the Admin UI or seed directly in `frontend/lib/db/seed.ts` → `seedDefaultRules`.
 
 ## Calculation Engine
 
-All calculations live in `backend/src/services/calc.service.ts`.
+All calculations live in `frontend/lib/services/calc.ts` (server) and `frontend/lib/calc.ts` (client preview).
 
 Currently uses configurable values from DB settings (no hard-coded defaults):
 - markup, tax_rate, labor_rate, financing_fee, etc.
 
 ## Deployment Notes
 
-This is a pnpm monorepo. **You must deploy the backend and frontend as separate services** on Railway (or similar platforms).
+This is now a single Next.js application (API routes + frontend).
 
 ### Railway Deployment (Recommended)
 
-1. **Create two services in your Railway project** (one for backend, one for frontend).
+1. Connect your GitHub repo to a **single Railway service**.
 
-2. **For the Backend service**:
-   - Connect your GitHub repo.
-   - Set **Root Directory** to `backend`.
-   - Railway will auto-detect `package.json` and use Nixpacks.
-   - Build Command (if needed): `pnpm --filter hcp-estimator-backend install --frozen-lockfile && pnpm --filter hcp-estimator-backend build`
-   - Start Command: `pnpm --filter hcp-estimator-backend start`
+2. **Settings**:
+   - Set **Root Directory** to `frontend` (recommended to keep it simple).
+   - Build Command (if needed): `pnpm install --frozen-lockfile && pnpm build`
+   - Start Command: `pnpm start`
    - Add environment variables:
      - `DATABASE_URL` (your Neon Postgres URL)
      - `JWT_SECRET`
      - `JWT_REFRESH_SECRET`
-     - `FRONTEND_URL` (the public URL of your frontend service, e.g. `https://your-frontend.railway.app`)
      - `HCP_BASE_URL=https://api.housecallpro.com` (optional)
-     - Optionally set production values (no `DEV_BYPASS`)
-
-3. **For the Frontend service**:
-   - Connect the same GitHub repo.
-   - Set **Root Directory** to `frontend`.
-    - Build Command (if needed): `pnpm --filter frontend install --frozen-lockfile && pnpm --filter frontend build`
-    - Start Command: `pnpm --filter frontend start`
-    - Add environment variables:
-      - `NEXT_PUBLIC_API_URL` = `https://your-backend-service.railway.app/api` (use the backend's public domain)
+     - Optionally `DEV_BYPASS=false` for prod-like
 
 **Important**:
-- Deploy backend first, then use its public URL for the frontend's `NEXT_PUBLIC_API_URL`.
-- Railway will prompt you to set the Root Directory if it detects the monorepo (as seen in the error "Set the Root Directory to the subdirectory...").
-- Use the `railway.json` and `railpack.json` files included in each directory for explicit config (Railpack is used by Railway).
-- We added a dummy "start" script at the root package.json so that if the monorepo root is used for build, detection passes (the actual start is overridden by config or sub package.json).
-- If you still see "No start command detected", in the Railway service settings, explicitly set the **Start Command** to the one above (e.g. `pnpm --filter hcp-estimator-backend start`).
+- Use the `railpack.json` / `railway.json` in `frontend/` for explicit config if needed.
+- `pnpm db:push` or equivalent to initialize schema on first deploy (or run via Railway shell).
 
 ### Other Platforms
-- **Vercel**: Great for frontend. Set root directory to `frontend`. Use serverless functions or separate backend.
-- **Render / Fly.io**: Similar root directory + build/start commands.
+- **Vercel**: Excellent fit. Set root directory to `frontend`.
 - Always set `NODE_ENV=production` and strong secrets.
 
-After deployment:
-- The backend runs on its own port (Railway assigns one).
-- Frontend proxies API calls via `NEXT_PUBLIC_API_URL`.
-
-## Development
-
-Use pnpm from the root for monorepo commands:
-
-```bash
-pnpm install                 # installs for both
-pnpm dev:backend
-pnpm dev:frontend
-```
-
-Or cd into subdirs:
-
-```bash
-# Backend
-cd backend
-pnpm dev
-
-# Frontend
-cd frontend
-pnpm dev
-```
+After deployment the app serves both UI and `/api/*` on one URL.
 
 ## Development
 
 ```bash
-# Backend
-cd backend
-pnpm dev
-
-# Frontend
-cd frontend
+pnpm install
 pnpm dev
 ```
+
+App runs at http://localhost:3000
+
+To run DB migrations:
+```bash
+cd frontend
+pnpm db:push
+```
+
+## For Reviewers
+
+### Run locally
+```bash
+git clone https://github.com/tharrosmedia/hcp_estimator.git
+cd hcp_estimator
+cp frontend/.env.example frontend/.env
+# Add a Neon DATABASE_URL + JWT_SECRET + JWT_REFRESH_SECRET to .env
+pnpm install
+pnpm dev
+```
+
+Visit http://localhost:3000
+
+### Deploy to your own Railway (single service)
+1. Fork or connect the repo.
+2. Create one service.
+3. Root Directory: `frontend`
+4. Add env vars (see above).
+5. Deploy.
 
 ## License
 Internal tool for Tharros Media.

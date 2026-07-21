@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PricebookItem } from '@shared/types';
+import { PricebookItem } from '@/lib/shared/types';
 
 interface PricebookPickerProps {
   pricebook: any[];

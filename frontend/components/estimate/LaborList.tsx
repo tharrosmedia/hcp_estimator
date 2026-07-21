@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { EstimateLabor } from '@shared/types';
+import { EstimateLabor } from '@/lib/shared/types';
 
 interface LaborListProps {
   labor: EstimateLabor[];

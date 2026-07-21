@@ -1,4 +1,4 @@
-import { EstimateMaterial, EstimateLabor } from '@shared/types';
+import { EstimateMaterial, EstimateLabor } from '@/lib/shared/types';
 
 export interface PreviewCalcInput {
   materials: EstimateMaterial[];

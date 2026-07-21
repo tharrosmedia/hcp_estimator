@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Estimate, EstimateMaterial, EstimateLabor } from '@shared/types';
+import { Estimate, EstimateMaterial, EstimateLabor } from '@/lib/shared/types';
 
 interface EstimateState {
   currentEstimate: Partial<Estimate> | null;

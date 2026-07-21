@@ -3,13 +3,12 @@
   "steps": {
     "build": {
       "commands": [
-        "...",
-        "pnpm --filter frontend install --frozen-lockfile",
-        "pnpm --filter frontend build"
+        "pnpm install --frozen-lockfile",
+        "pnpm build"
       ]
     }
   },
   "deploy": {
-    "startCommand": "pnpm --filter frontend start"
+    "startCommand": "pnpm start"
   }
 }

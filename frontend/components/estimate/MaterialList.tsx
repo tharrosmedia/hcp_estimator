@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { EstimateMaterial } from '@shared/types';
+import { EstimateMaterial } from '@/lib/shared/types';
 
 interface MaterialListProps {
   materials: EstimateMaterial[];
