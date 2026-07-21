@@ -14,6 +14,9 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
   if (!apiKey) {
     throw new Error('HCP API key required');
   }
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
+  }
 
   try {
     // Real call
@@ -41,12 +44,20 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
       console.warn('HCP fetch failed, returning mock pricebook');
       return getMockPricebook();
     }
-    throw new Error(`HCP pricebook fetch failed: ${err.message}`);
+    const status = err.response?.status;
+    let msg = err.message;
+    if (status === 404) {
+      msg = '404 from HCP (likely invalid or unauthorized API key, or pricebook not accessible for this key). Re-generate and re-save your HCP API key in Admin.';
+    }
+    throw new Error(`HCP pricebook fetch failed: ${msg}`);
   }
 }
 
 export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: string): Promise<{ id: string; status: string }> {
   if (!apiKey) throw new Error('HCP API key required to push estimate');
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
+  }
 
   try {
     const res = await axios.post(`${HCP_BASE}/estimates`, {
@@ -87,6 +98,9 @@ export interface HcpJob {
 export async function fetchHcpJobs(apiKey: string, opts: { date?: string; search?: string } = {}): Promise<HcpJob[]> {
   if (!apiKey) {
     throw new Error('HCP API key required');
+  }
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
   }
 
   try {
