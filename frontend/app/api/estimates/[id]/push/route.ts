@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import * as estimateService from '@/lib/services/estimate';
-import { createHcpEstimate } from '@/lib/services/hcp';
+import { createHcpEstimate, updateHcpEstimate } from '@/lib/services/hcp';
 
 export const runtime = 'nodejs';
 
@@ -17,9 +17,10 @@ export async function POST(
   const { id } = await params;
   const estimateId = parseInt(id);
   try {
-    const result = await estimateService.pushToHcp(estimateId, user.userId, { createHcpEstimate });
+    const result = await estimateService.pushToHcp(estimateId, user.userId, { createHcpEstimate, updateHcpEstimate });
     return NextResponse.json({ success: true, hcpResult: result });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 400 });
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: msg }, { status: 400 });
   }
 }

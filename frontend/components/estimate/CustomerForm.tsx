@@ -9,6 +9,7 @@ interface CustomerFormProps {
     customerPhone?: string;
     jobAddress?: string;
     hcpJobId?: string;
+    hcpEstimateId?: string;
   };
   onChange: (field: string, value: string) => void;
 }

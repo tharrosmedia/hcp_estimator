@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { VariantDisplay } from '@/components/estimate/VariantDisplay';
 import { PricebookPicker } from '@/components/estimate/PricebookPicker';
 import { CustomerForm } from '@/components/estimate/CustomerForm';
 import { calculatePreview } from '@/lib/calc';
-import { HcpJob } from '@/lib/services/hcp';
+import { HcpEstimate } from '@/lib/services/hcp';
 
 const DEFAULT_MARKUP = 0.4;
 const DEFAULT_TAX = 0.06;
@@ -41,23 +41,20 @@ export default function NewEstimateWizard() {
   const [loading, setLoading] = useState(false);
   const [showDuctless, setShowDuctless] = useState(false);
 
-  // HCP Jobs for Section 1
-  const [jobs, setJobs] = useState<HcpJob[]>([]);
-  const [jobSearch, setJobSearch] = useState('');
-  const [jobsLoading, setJobsLoading] = useState(false);
-  const defaultedJobRef = useRef(false);
+  const [estimates, setEstimates] = useState<HcpEstimate[]>([]);
+  const [estimateSearch, setEstimateSearch] = useState('');
+  const [estimatesLoading, setEstimatesLoading] = useState(false);
 
-  // Global settings (labor rate, fees)
   const [globals, setGlobals] = useState<Record<string, string>>({});
   const [installRules, setInstallRules] = useState<any[]>([]);
 
-  // Local form states for current step
   const [customer, setCustomer] = useState({
     customerName: currentEstimate?.customerName || '',
     customerEmail: currentEstimate?.customerEmail || '',
     customerPhone: currentEstimate?.customerPhone || '',
     jobAddress: currentEstimate?.jobAddress || '',
     hcpJobId: currentEstimate?.hcpJobId || '',
+    hcpEstimateId: currentEstimate?.hcpEstimateId || '',
   });
 
   const [matForm, setMatForm] = useState({ name: '', cost: 0, qty: 1 });
@@ -78,47 +75,25 @@ export default function NewEstimateWizard() {
     if (pricebook.length === 0) {
       api.get('/pricebook')
         .then((res) => setPricebook(res.data))
-        .catch(() => {
-          // fallback to empty, user can add custom
-        });
+        .catch(() => {});
     }
   }, [pricebook.length, setPricebook]);
 
-  // Load today's HCP jobs for customer step (default to first)
   useEffect(() => {
-    const loadJobs = async () => {
-      setJobsLoading(true);
+    const loadEstimates = async () => {
+      setEstimatesLoading(true);
       try {
-        const today = new Date().toISOString().slice(0, 10);
-        const res = await api.get('/hcp/jobs', { params: { date: today } });
-        let fetched: HcpJob[] = res.data || [];
-        if (fetched.length === 0) {
-          // fallback fetch without date filter
-          const all = await api.get('/hcp/jobs');
-          fetched = all.data || [];
-        }
-        setJobs(fetched);
-        // default to today's first if no customer name yet
-        if (!defaultedJobRef.current && !customer.customerName && fetched.length > 0) {
-          defaultedJobRef.current = true;
-          const first = fetched[0];
-          const c = {
-            customerName: first.customer?.name || '',
-            customerEmail: first.customer?.email || '',
-            customerPhone: first.customer?.phone || '',
-            jobAddress: first.address || '',
-            hcpJobId: first.id,
-          };
-          setCustomer(c);
-        }
-      } catch (e) {
-        // silent, jobs optional
-      } finally {
-        setJobsLoading(false);
+        const res = await api.get('/hcp/estimates');
+        let fetched: HcpEstimate[] = res.data || [];
+        fetched = fetched.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        setEstimates(fetched);
+      } catch {}
+      finally {
+        setEstimatesLoading(false);
       }
     };
-    loadJobs();
-  }, []); // once on mount
+    loadEstimates();
+  }, []);
 
   // Load global settings (for labor rate, fees)
   useEffect(() => {
@@ -147,28 +122,31 @@ export default function NewEstimateWizard() {
     });
   };
 
-  const handleSearchJobs = async () => {
-    setJobsLoading(true);
+  const handleSearchEstimates = async () => {
+    setEstimatesLoading(true);
     try {
       const params: any = {};
-      if (jobSearch) params.search = jobSearch;
-      const res = await api.get('/hcp/jobs', { params });
-      setJobs(res.data || []);
+      if (estimateSearch) params.search = estimateSearch;
+      const res = await api.get('/hcp/estimates', { params });
+      let fetched: HcpEstimate[] = res.data || [];
+      fetched = fetched.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      setEstimates(fetched);
     } catch {}
-    finally { setJobsLoading(false); }
+    finally { setEstimatesLoading(false); }
   };
 
-  const selectJob = (job: HcpJob) => {
+  const selectEstimate = (est: HcpEstimate) => {
     const updated = {
-      customerName: job.customer?.name || '',
-      customerEmail: job.customer?.email || '',
-      customerPhone: job.customer?.phone || '',
-      jobAddress: job.address || '',
-      hcpJobId: job.id,
+      customerName: est.customer?.name || '',
+      customerEmail: est.customer?.email || '',
+      customerPhone: est.customer?.phone || '',
+      jobAddress: est.address || '',
+      hcpJobId: '',
+      hcpEstimateId: est.id,
     };
     setCustomer(updated);
-    setJobSearch('');
-    toast.success(`Selected ${job.customer?.name || job.id}`);
+    setEstimateSearch('');
+    toast.success(`Selected ${est.customer?.name || est.id}`);
   };
 
   const handleNext = () => {
@@ -256,6 +234,7 @@ export default function NewEstimateWizard() {
         markup,
         taxRate,
         hcpJobId: customer.hcpJobId || undefined,
+        hcpEstimateId: customer.hcpEstimateId || undefined,
       };
       const { data } = await api.post('/estimates', payload);
       toast.success('Estimate saved');
@@ -302,36 +281,35 @@ export default function NewEstimateWizard() {
 
       <StepProgress current={step} total={5} onStepClick={(s) => setStep(s)} />
 
-      {/* STEP 1: Customer */}
       {step === 1 && (
         <Card>
-          <CardHeader><CardTitle>1. Customer &amp; Site (pull from HCP calendar)</CardTitle></CardHeader>
+          <CardHeader><CardTitle>1. Customer &amp; Site (select existing HCP estimate)</CardTitle></CardHeader>
           <CardContent className="space-y-4">
             <div>
               <div className="flex gap-2 mb-2">
                 <Input
-                  placeholder="Search name (defaults to today's first)"
-                  value={jobSearch}
-                  onChange={(e) => setJobSearch(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleSearchJobs()}
+                  placeholder="Search name"
+                  value={estimateSearch}
+                  onChange={(e) => setEstimateSearch(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearchEstimates()}
                   className="flex-1"
                 />
-                <Button variant="outline" onClick={handleSearchJobs} disabled={jobsLoading}>Search</Button>
+                <Button variant="outline" onClick={handleSearchEstimates} disabled={estimatesLoading}>Search</Button>
               </div>
-              {jobsLoading && <p className="text-xs text-muted-foreground">Loading jobs...</p>}
-              {!jobsLoading && jobs.length === 0 && jobSearch && (
-                <p className="text-xs text-muted-foreground mb-2">No matching jobs found. Enter details manually below.</p>
+              {estimatesLoading && <p className="text-xs text-muted-foreground">Loading estimates...</p>}
+              {!estimatesLoading && estimates.length === 0 && estimateSearch && (
+                <p className="text-xs text-muted-foreground mb-2">No matching estimates found. Enter details manually below.</p>
               )}
-              {jobs.length > 0 && (
+              {estimates.length > 0 && (
                 <div className="border rounded max-h-40 overflow-auto text-sm mb-3">
-                  {jobs.slice(0, 10).map((job, i) => (
+                  {estimates.slice(0, 10).map((est, i) => (
                     <div
                       key={i}
-                      onClick={() => selectJob(job)}
+                      onClick={() => selectEstimate(est)}
                       className="p-2 hover:bg-muted cursor-pointer flex justify-between border-b last:border-b-0"
                     >
-                      <span>{job.customer?.name || 'Unnamed'} — {job.scheduled_date || ''}</span>
-                      <span className="text-muted-foreground text-xs">{job.address}</span>
+                      <span>{est.customer?.name || 'Unnamed'} — {est.created_at ? new Date(est.created_at).toLocaleDateString() : ''}</span>
+                      <span className="text-muted-foreground text-xs">{est.status || est.address}</span>
                     </div>
                   ))}
                 </div>
@@ -433,6 +411,7 @@ export default function NewEstimateWizard() {
           <CardContent>
             <div className="text-sm space-y-1 mb-4">
               <div>Customer: <strong>{customer.customerName}</strong></div>
+              {customer.hcpEstimateId && <div className="text-xs">Linked HCP Estimate: {customer.hcpEstimateId}</div>}
               {customer.hcpJobId && <div className="text-xs">Linked HCP Job: {customer.hcpJobId}</div>}
               <div>Materials: <strong>${previewCalc.materialsSubtotal.toFixed(2)}</strong></div>
               <div>Labor (internal): <strong>${previewCalc.laborTotal.toFixed(2)}</strong></div>
@@ -453,7 +432,7 @@ export default function NewEstimateWizard() {
         <Card>
           <CardHeader><CardTitle>5. Save Estimate</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm">This saves the estimate locally and pushes line items to the linked Housecall Pro job/estimate (requires your HCP key in admin).</p>
+            <p className="text-sm">This saves the estimate locally and pushes line items to the linked Housecall Pro estimate (updates existing if selected; requires HCP key in admin).</p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
               <Button onClick={handleFinalize} disabled={loading} className="flex-1 btn-large">

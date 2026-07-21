@@ -28,7 +28,7 @@ export async function getEstimateById(id: number, userId?: number) {
 }
 
 export async function createEstimate(data: any, userId: number) {
-  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId } = data;
+  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId, hcpEstimateId } = data;
 
   // Get user settings or global
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -49,6 +49,7 @@ export async function createEstimate(data: any, userId: number) {
     status: 'draft',
     approvalFlag: false,
     hcpJobId: hcpJobId || null,
+    hcpEstimateId: hcpEstimateId || null,
   }).returning();
 
   if (materials?.length) {
@@ -114,7 +115,7 @@ export async function duplicateEstimate(id: number, userId: number) {
   return newEst;
 }
 
-export async function pushToHcp(estimateId: number, userId: number, hcpService: any) {
+export async function pushToHcp(estimateId: number, userId: number, hcpService: { createHcpEstimate: any; updateHcpEstimate?: any }) {
   const estimate = await getEstimateById(estimateId, userId);
   if (!estimate) throw new Error('Estimate not found');
 
@@ -123,7 +124,6 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   const apiKey = await decryptApiKey(user?.hcpApiKey);
   if (!apiKey) throw new Error('User has no HCP API key configured');
 
-  // Only send customer-facing line items (materials with marked up price)
   const payload = {
     customer: {
       name: estimate.customerName,
@@ -141,13 +141,21 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
     jobId: estimate.hcpJobId || undefined,
   };
 
-  const result = await hcpService.createHcpEstimate(payload, apiKey);
-
-  await db.update(estimates).set({
-    status: 'pushed_to_hcp',
-    hcpEstimateId: result.id,
-    updatedAt: new Date(),
-  }).where(eq(estimates.id, estimateId));
+  let result;
+  if (estimate.hcpEstimateId && hcpService.updateHcpEstimate) {
+    result = await hcpService.updateHcpEstimate(estimate.hcpEstimateId, payload, apiKey);
+    await db.update(estimates).set({
+      status: 'pushed_to_hcp',
+      updatedAt: new Date(),
+    }).where(eq(estimates.id, estimateId));
+  } else {
+    result = await hcpService.createHcpEstimate(payload, apiKey);
+    await db.update(estimates).set({
+      status: 'pushed_to_hcp',
+      hcpEstimateId: result.id,
+      updatedAt: new Date(),
+    }).where(eq(estimates.id, estimateId));
+  }
 
   return result;
 }

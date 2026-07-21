@@ -87,11 +87,50 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
   }
 }
 
+export async function updateHcpEstimate(estimateId: string, payload: CreateEstimatePayload, apiKey: string): Promise<{ id: string; status: string }> {
+  if (!apiKey) throw new Error('HCP API key required to push estimate');
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
+  }
+
+  try {
+    const res = await axios.patch(`${HCP_BASE}/v1/estimates/${estimateId}`, {
+      line_items: payload.materials.map(m => ({
+        name: m.name,
+        description: m.description || '',
+        unit_price: m.unitPrice,
+        quantity: m.quantity,
+      })),
+    }, {
+      headers: getHeaders(apiKey) as any,
+    });
+
+    return {
+      id: estimateId,
+      status: res.data?.status || 'updated',
+    };
+  } catch (err: any) {
+    if (env.DEV_BYPASS) {
+      return { id: estimateId, status: 'updated' };
+    }
+    throw new Error(`Failed to update HCP estimate: ${err.message}`);
+  }
+}
+
 export interface HcpJob {
   id: string;
   scheduled_date?: string;
   customer?: { name?: string; email?: string; phone?: string };
   address?: string;
+  notes?: string;
+}
+
+export interface HcpEstimate {
+  id: string;
+  created_at?: string;
+  customer?: { name?: string; email?: string; phone?: string };
+  address?: string;
+  status?: string;
   notes?: string;
 }
 
@@ -147,6 +186,57 @@ function getMockJobs(opts: { date?: string; search?: string } = {}): HcpJob[] {
   if (opts.search) {
     const q = opts.search.toLowerCase();
     res = res.filter(j => (j.customer?.name || '').toLowerCase().includes(q));
+  }
+  return res;
+}
+
+export async function fetchHcpEstimates(apiKey: string, opts: { search?: string } = {}): Promise<HcpEstimate[]> {
+  if (!apiKey) {
+    throw new Error('HCP API key required');
+  }
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
+  }
+
+  try {
+    const params: any = { per_page: 50 };
+    const res = await axios.get(`${HCP_BASE}/v1/estimates`, {
+      headers: getHeaders(apiKey) as any,
+      params,
+    });
+
+    let ests = res.data?.estimates || res.data || [];
+    if (opts.search) {
+      const q = opts.search.toLowerCase();
+      ests = ests.filter((e: any) => (e.customer?.name || '').toLowerCase().includes(q));
+    }
+    return ests.map((e: any) => ({
+      id: e.id || e.uuid,
+      created_at: e.created_at || e.createdAt || e.updated_at,
+      customer: e.customer,
+      address: e.address || e.service_location?.address || undefined,
+      status: e.status,
+      notes: e.notes || undefined,
+    }));
+  } catch (err: any) {
+    if (env.DEV_BYPASS || process.env.NODE_ENV !== 'production') {
+      return getMockEstimates(opts);
+    }
+    throw new Error(`HCP estimates fetch failed: ${err.message}`);
+  }
+}
+
+function getMockEstimates(opts: { search?: string } = {}): HcpEstimate[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const mocks: HcpEstimate[] = [
+    { id: 'est-m1', created_at: today, customer: { name: 'John Smith', email: 'john@example.com', phone: '555-0101' }, address: '123 Main St', status: 'draft' },
+    { id: 'est-m2', created_at: today, customer: { name: 'Jane Doe', email: 'jane@example.com' }, address: '456 Oak Ave', status: 'sent' },
+    { id: 'est-m3', created_at: '2026-07-20', customer: { name: 'Acme Corp' }, status: 'draft' },
+  ];
+  let res = mocks;
+  if (opts.search) {
+    const q = opts.search.toLowerCase();
+    res = res.filter(e => (e.customer?.name || '').toLowerCase().includes(q));
   }
   return res;
 }
