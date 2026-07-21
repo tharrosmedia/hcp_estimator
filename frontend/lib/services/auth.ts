@@ -42,7 +42,7 @@ export async function verifyMagicToken(token: string): Promise<string | null> {
 
 export async function findOrCreateUser(email: string, name?: string): Promise<any> {
   const lower = email.toLowerCase();
-  let user = await db.query.users.findFirst({ where: eq(users.email, lower) });
+  let [user] = await db.select().from(users).where(eq(users.email, lower)).limit(1);
 
   if (!user) {
     const [newUser] = await db.insert(users).values({

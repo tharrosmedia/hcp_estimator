@@ -52,7 +52,7 @@ export async function handleRefreshToken(body: { refreshToken?: string }) {
     return { error: 'Invalid refresh token', status: 401 };
   }
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, payload.userId) });
+  const [user] = await db.select().from(users).where(eq(users.id, payload.userId)).limit(1);
   if (!user) {
     return { error: 'User not found', status: 401 };
   }

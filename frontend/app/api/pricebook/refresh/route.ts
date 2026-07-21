@@ -15,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const dbUser = await db.query.users.findFirst({ where: eq(users.id, user.userId) });
+    const [dbUser] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
     const key = dbUser?.hcpApiKey || process.env.HCP_SYNC_KEY;
     if (!key) {
       return NextResponse.json({ error: 'No HCP API key available for sync' }, { status: 400 });
