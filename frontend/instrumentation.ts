@@ -7,31 +7,55 @@ import { migrate } from 'drizzle-orm/neon-http/migrator';
 import cron from 'node-cron';
 import path from 'path';
 import fs from 'fs';
+import { migration0000 } from './lib/db/migration-sql';
 
 export async function register() {
   try {
-    // Apply any pending migrations (this makes schema updates ongoing)
-    // Robust resolution for monorepo + Railway / Next production layouts
-    const candidates = [
-      path.resolve(process.cwd(), 'drizzle'),
-      path.resolve(process.cwd(), 'frontend', 'drizzle'),
-      // When running from .next/server/instrumentation.js
-      path.resolve(__dirname, '..', '..', '..', 'drizzle'),
-      path.resolve(__dirname, '..', '..', 'drizzle'),
-    ];
-    let migrationsFolder = candidates[0];
-    for (const candidate of candidates) {
-      const sqlPath = path.join(candidate, '0000_purple_bloodstrike.sql');
-      if (fs.existsSync(sqlPath)) {
-        migrationsFolder = candidate;
-        break;
+    // Apply schema using embedded SQL (guaranteed, no runtime file dependency)
+    const statements = migration0000
+      .split('--> statement-breakpoint')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    console.log('[MIGRATE] Applying', statements.length, 'schema statements from embedded SQL');
+    for (const stmt of statements) {
+      try {
+        await db.execute({ sql: stmt, params: [] } as any);
+      } catch (stmtErr: any) {
+        // Ignore duplicate table / constraint errors (IF NOT EXISTS + DO blocks)
+        if (!/already exists|duplicate_object/i.test(String(stmtErr?.message || stmtErr))) {
+          console.error('[MIGRATE] Statement error (non-fatal):', stmtErr);
+        }
       }
     }
-    console.log('[MIGRATE] cwd:', process.cwd());
-    console.log('[MIGRATE] __dirname:', __dirname);
-    console.log('[MIGRATE] Using migrations folder:', migrationsFolder);
-    console.log('[MIGRATE] sql file exists:', fs.existsSync(path.join(migrationsFolder, '0000_purple_bloodstrike.sql')));
-    await migrate(db, { migrationsFolder });
+    console.log('[MIGRATE] Embedded schema statements applied');
+
+    // Also try the file-based migrator if the files happen to be present (for future migrations)
+    try {
+      const candidates = [
+        path.resolve(process.cwd(), 'drizzle'),
+        path.resolve(process.cwd(), 'frontend', 'drizzle'),
+        path.resolve(__dirname, '..', '..', '..', 'drizzle'),
+        path.resolve(__dirname, '..', '..', 'drizzle'),
+      ];
+      let migrationsFolder: string | null = null;
+      for (const candidate of candidates) {
+        if (fs.existsSync(path.join(candidate, '0000_purple_bloodstrike.sql'))) {
+          migrationsFolder = candidate;
+          break;
+        }
+      }
+      console.log('[MIGRATE] cwd:', process.cwd());
+      console.log('[MIGRATE] __dirname:', __dirname);
+      if (migrationsFolder) {
+        console.log('[MIGRATE] Also running file migrator from:', migrationsFolder);
+        await migrate(db, { migrationsFolder });
+      } else {
+        console.log('[MIGRATE] No migration files found on disk (using embedded)');
+      }
+    } catch (fileMigrateErr) {
+      console.log('[MIGRATE] File-based migrator skipped/failed (non-fatal):', fileMigrateErr);
+    }
 
     // Basic DB connectivity check
     await db.execute({ sql: 'select 1', params: [] } as any);
