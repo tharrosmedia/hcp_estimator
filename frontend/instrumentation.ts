@@ -5,11 +5,13 @@ import { db as schemaDb, users } from './lib/db';
 import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/neon-http/migrator';
 import cron from 'node-cron';
+import path from 'path';
 
 export async function register() {
   try {
     // Apply any pending migrations (this makes schema updates ongoing)
-    await migrate(db, { migrationsFolder: './drizzle' });
+    const migrationsFolder = path.resolve(process.cwd(), 'drizzle');
+    await migrate(db, { migrationsFolder });
 
     // Basic DB connectivity check
     await db.execute({ sql: 'select 1', params: [] } as any);
