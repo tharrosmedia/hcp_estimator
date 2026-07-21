@@ -49,6 +49,8 @@ Thumbs.db
 
 # Drizzle
 drizzle/
+!drizzle/*.sql
+!drizzle/meta/
 
 # Logs
 logs/

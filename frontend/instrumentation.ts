@@ -3,10 +3,14 @@ import { seedDefaultRules } from './lib/db/seed';
 import { syncPricebook } from './lib/services/pricebook';
 import { db as schemaDb, users } from './lib/db';
 import { eq } from 'drizzle-orm';
+import { migrate } from 'drizzle-orm/neon-http/migrator';
 import cron from 'node-cron';
 
 export async function register() {
   try {
+    // Apply any pending migrations (this makes schema updates ongoing)
+    await migrate(db, { migrationsFolder: './drizzle' });
+
     // Basic DB connectivity check
     await db.execute({ sql: 'select 1', params: [] } as any);
 
@@ -32,7 +36,7 @@ export async function register() {
       }
     });
 
-    console.log('🚀 App startup complete (DB connected, rules seeded, cron scheduled)');
+    console.log('🚀 App startup complete (migrations applied, DB connected, rules seeded, cron scheduled)');
   } catch (e) {
     console.error('Failed to start app', e);
   }

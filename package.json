@@ -8,7 +8,9 @@
   "scripts": {
     "dev": "pnpm --filter frontend dev",
     "build": "pnpm --filter frontend build",
-    "start": "pnpm --filter frontend start"
+    "start": "pnpm --filter frontend start",
+    "db:push": "pnpm --filter frontend db:push",
+    "db:studio": "pnpm --filter frontend db:studio"
   },
   "packageManager": "pnpm@10.15.0"
 }

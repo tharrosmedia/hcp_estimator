@@ -95,7 +95,34 @@ This is now a single Next.js application (API routes + frontend).
 
 **Important**:
 - Use the `railpack.json` / `railway.json` in `frontend/` for explicit config if needed.
-- `pnpm db:push` or equivalent to initialize schema on first deploy (or run via Railway shell).
+- **You must initialize the database schema** before the app can work (see Database Setup below).
+
+## Database Setup
+
+The app uses Drizzle ORM. Tables are **not** auto-created on startup.
+
+### On Railway (recommended for prod)
+1. In Railway dashboard for your service:
+   - Go to **Shell** tab (or use "Run Command" / one-off).
+   - Run:
+     ```bash
+     pnpm db:push
+     ```
+
+   (Or from root of the project: `pnpm db:push`)
+   This connects using your `DATABASE_URL` and creates all tables (users, estimates, pricebook_items, etc.).
+
+### Locally (for dev or to apply to prod DB)
+```bash
+# Set your Neon DATABASE_URL (copy from Neon console for the correct branch)
+export DATABASE_URL="postgresql://user:pass@host/db"
+
+pnpm db:push
+```
+
+After this, your Neon "Tables" view should show the tables (users, settings, pricebook_items, install_rules, lineset_rules, estimates, estimate_materials, estimate_labor, magic_tokens).
+
+If you see "0 tables", run the push command above.
 
 ### Other Platforms
 - **Vercel**: Excellent fit. Set root directory to `frontend`.
@@ -114,7 +141,6 @@ App runs at http://localhost:3000
 
 To run DB migrations:
 ```bash
-cd frontend
 pnpm db:push
 ```
 
