@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 export const api = axios.create({
-  baseURL: '',
+  baseURL: '/api',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -61,7 +61,7 @@ api.interceptors.response.use(
       }
 
       try {
-        const { data } = await axios.post(`/auth/refresh`, { refreshToken });
+        const { data } = await axios.post(`/api/auth/refresh`, { refreshToken });
         localStorage.setItem('accessToken', data.accessToken);
         api.defaults.headers.common['Authorization'] = 'Bearer ' + data.accessToken;
         processQueue(null, data.accessToken);
