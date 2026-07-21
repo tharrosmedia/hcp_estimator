@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser, requireRole } from '@/lib/auth';
+import { getAuthenticatedUser } from '@/lib/auth';
 import { rawSql } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
@@ -7,8 +7,7 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  // allow any logged-in to read settings for wizard globals (labor_rate, fees)
-  // write still restricted to admin
+  // allow any logged-in to read and write settings for wizard globals (labor_rate, fees etc)
 
   if (!rawSql) return NextResponse.json([]);
   const all = await rawSql`SELECT * FROM settings ORDER BY key`;
@@ -20,9 +19,8 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!requireRole(user, ['admin'])) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-  }
+  // any authenticated user can manage global settings (used by builder for all roles)
+  // (no further role restriction)
 
   const { key, value } = await request.json();
   if (!key || value === undefined) return NextResponse.json({ error: 'key and value required' }, { status: 400 });

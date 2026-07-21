@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedUser, requireRole } from '@/lib/auth';
+import { getAuthenticatedUser } from '@/lib/auth';
 import { syncPricebook } from '@/lib/services/pricebook';
-import { db, users } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { rawSql } from '@/lib/db';
 import { decryptApiKey } from '@/lib/encrypt';
 
 export const runtime = 'nodejs';
@@ -13,13 +12,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!requireRole(user, ['admin', 'manager'])) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+  // allow any logged-in user to trigger pricebook refresh (uses their HCP key or sync key)
+  if (!rawSql) {
+    return NextResponse.json({ error: 'No database' }, { status: 500 });
   }
-
   try {
-    const [dbUser] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
-    const key = await decryptApiKey(dbUser?.hcpApiKey) || process.env.HCP_SYNC_KEY;
+    const rows = await rawSql`SELECT hcp_api_key FROM users WHERE id = ${user.userId} LIMIT 1`;
+    const key = await decryptApiKey(rows[0]?.hcp_api_key) || process.env.HCP_SYNC_KEY;
     if (!key) {
       return NextResponse.json({ error: 'No HCP API key available for sync' }, { status: 400 });
     }

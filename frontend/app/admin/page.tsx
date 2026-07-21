@@ -49,18 +49,26 @@ export default function AdminPage() {
   };
 
   const saveSettingValue = async (key: string, value: string) => {
-    if (!value) return;
-    await api.post('/admin/settings', { key, value });
-    toast.success(`${key} saved`);
-    fetchData();
+    if (!value && value !== '0') return;
+    try {
+      await api.post('/admin/settings', { key, value });
+      toast.success(`${key} saved`);
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to save setting');
+    }
   };
 
   const saveSetting = async () => {
     if (!newKey || !newValue) return;
-    await api.post('/admin/settings', { key: newKey, value: newValue });
-    toast.success('Setting saved');
-    setNewKey(''); setNewValue('');
-    fetchData();
+    try {
+      await api.post('/admin/settings', { key: newKey, value: newValue });
+      toast.success('Setting saved');
+      setNewKey(''); setNewValue('');
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to save setting');
+    }
   };
 
   const saveHcpKey = async () => {
