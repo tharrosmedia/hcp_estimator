@@ -1,7 +1,6 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { db, users, magicTokens } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { rawSql } from '@/lib/db';
 import { env } from '@/lib/env';
 import { AuthTokenPayload, UserRole } from '@/lib/shared/types';
 
@@ -14,43 +13,48 @@ export function generateMagicToken(email: string): string {
 }
 
 export async function createMagicToken(email: string): Promise<string> {
+  if (!rawSql) throw new Error('No database connection');
   const token = generateMagicToken(email);
   const expiresAt = new Date(Date.now() + 1000 * 60 * 15); // 15 min
 
-  await db.insert(magicTokens).values({
-    email: email.toLowerCase(),
-    token,
-    expiresAt,
-  });
+  await rawSql`
+    INSERT INTO magic_tokens (email, token, expires_at)
+    VALUES (${email.toLowerCase()}, ${token}, ${expiresAt})
+  `;
 
   return token;
 }
 
 export async function verifyMagicToken(token: string): Promise<string | null> {
-  const record = await db.query.magicTokens.findFirst({
-    where: eq(magicTokens.token, token),
-  });
+  if (!rawSql) return null;
+  const records = await rawSql`SELECT * FROM magic_tokens WHERE token = ${token} LIMIT 1`;
+  const record = records[0];
 
-  if (!record || record.used || record.expiresAt < new Date()) {
+  if (!record || record.used || new Date(record.expires_at) < new Date()) {
     return null;
   }
 
-  await db.update(magicTokens).set({ used: true }).where(eq(magicTokens.id, record.id));
+  await rawSql`
+    UPDATE magic_tokens SET used = true WHERE id = ${record.id}
+  `;
 
   return record.email;
 }
 
 export async function findOrCreateUser(email: string, name?: string): Promise<any> {
+  if (!rawSql) throw new Error('No database connection');
+
   const lower = email.toLowerCase();
-  let [user] = await db.select().from(users).where(eq(users.email, lower)).limit(1);
+  const existing = await rawSql`SELECT * FROM users WHERE email = ${lower} LIMIT 1`;
+  let user = existing[0];
 
   if (!user) {
-    const [newUser] = await db.insert(users).values({
-      email: lower,
-      name: name || email.split('@')[0],
-      role: 'sales',
-    }).returning();
-    user = newUser;
+    const inserted = await rawSql`
+      INSERT INTO users (email, name, role) 
+      VALUES (${lower}, ${name || email.split('@')[0]}, 'sales')
+      RETURNING *
+    `;
+    user = inserted[0];
   }
   if (user) {
     user.role = ((user.role as any) || 'sales').toString().toLowerCase() as any;

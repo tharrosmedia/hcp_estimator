@@ -8,12 +8,14 @@ if (!connectionString) {
   console.warn('⚠️  DATABASE_URL not set - DB operations will fail at runtime');
 }
 
-const sql = connectionString ? neon(connectionString) : null;
+const neonClient = connectionString ? neon(connectionString) : null;
 
-export const db = sql 
-  ? drizzle(sql, { schema }) 
+export const db = neonClient 
+  ? drizzle(neonClient, { schema }) 
   : new Proxy({} as any, {
       get() { throw new Error('DATABASE_URL is not set'); }
     });
+
+export const rawSql = neonClient;
 
 export * from './schema';

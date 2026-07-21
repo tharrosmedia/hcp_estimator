@@ -1,21 +1,25 @@
-import { db, installRules, linesetRules } from './index';
+import { rawSql } from './index';
 
 export async function seedDefaultRules() {
+  if (!rawSql) return;
+
   // Seed some sensible defaults (no hard coded markup etc)
-  const existingInstall = await db.select().from(installRules).limit(1);
+  const existingInstall = await rawSql`SELECT * FROM install_rules LIMIT 1`;
   if (existingInstall.length === 0) {
-    await db.insert(installRules).values([
-      { equipmentType: 'ductless_single', baseHours: 4, crewMultiplier: 1, notes: 'Single zone ductless' },
-      { equipmentType: 'ductless_multi', baseHours: 6, crewMultiplier: 1, notes: 'Multi zone' },
-      { equipmentType: 'lineset', baseHours: 1.5, crewMultiplier: 1, notes: 'Lineset run' },
-    ]);
+    await rawSql`
+      INSERT INTO install_rules (equipment_type, base_hours, crew_multiplier, notes) VALUES
+      ('ductless_single', 4, 1, 'Single zone ductless'),
+      ('ductless_multi', 6, 1, 'Multi zone'),
+      ('lineset', 1.5, 1, 'Lineset run')
+    `;
   }
 
-  const existingLineset = await db.select().from(linesetRules).limit(1);
+  const existingLineset = await rawSql`SELECT * FROM lineset_rules LIMIT 1`;
   if (existingLineset.length === 0) {
-    await db.insert(linesetRules).values([
-      { materialCategory: 'ductless', recommendedFt: 25, costPerFt: 6.5 },
-      { materialCategory: 'accessory', recommendedFt: 15, costPerFt: 5 },
-    ]);
+    await rawSql`
+      INSERT INTO lineset_rules (material_category, recommended_ft, cost_per_ft) VALUES
+      ('ductless', 25, 6.5),
+      ('accessory', 15, 5)
+    `;
   }
 }
