@@ -11,7 +11,6 @@ import { toast } from 'sonner';
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
-  const [devToken, setDevToken] = useState('');
   const router = useRouter();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -21,34 +20,16 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const { data } = await api.post('/auth/login', { email });
-      
-      if (data.devToken) {
-        setDevToken(data.devToken);
-        // auto verify in dev
-        await handleVerify(data.devToken);
-      } else {
-        toast.success('Magic link sent. Check your email or console.');
-      }
-    } catch (err) {
-      toast.error('Failed to send magic link');
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const handleVerify = async (token?: string) => {
-    const t = token || devToken;
-    if (!t) return;
-
-    try {
-      const { data } = await api.post('/auth/verify', { token: t });
       localStorage.setItem('accessToken', data.accessToken);
       localStorage.setItem('refreshToken', data.refreshToken);
       localStorage.setItem('user', JSON.stringify(data.user));
       toast.success('Logged in');
       router.push('/dashboard');
     } catch (err) {
-      toast.error('Invalid token');
+      toast.error('Failed to log in');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -75,15 +56,6 @@ export default function LoginPage() {
               {loading ? 'Logging in...' : 'Log in with Email'}
             </Button>
           </form>
-
-          {devToken && (
-            <div className="mt-4 p-3 bg-muted rounded text-xs">
-              Dev token: <code>{devToken}</code>
-              <Button size="sm" className="ml-2" onClick={() => handleVerify()}>
-                Login with token
-              </Button>
-            </div>
-          )}
 
           <p className="text-xs text-muted-foreground mt-6 text-center">
             Internal tool • Large buttons for field use
