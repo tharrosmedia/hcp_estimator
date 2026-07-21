@@ -21,16 +21,39 @@ export function LaborList({ labor, onRemove, onUpdate }: LaborListProps) {
         return (
           <div key={idx} className="flex items-center justify-between border p-3 rounded bg-muted">
             <div>
-              <span className="font-medium">{l.task}</span> — {l.hours}h @ ${l.rate}
+              <span className="font-medium">{l.task}</span>
+              {onUpdate ? '' : ` — ${l.hours}h @ ${l.rate}`}
             </div>
             <div className="flex items-center gap-2">
               <span className="font-semibold tabular-nums">${cost.toFixed(2)}</span>
-              <div className="flex gap-1">
+              <div className="flex gap-1 items-center">
                 {onUpdate && (
-                  <Button size="sm" variant="ghost" onClick={() => {
-                    const newHrs = parseFloat(prompt('Hours?', String(l.hours)) || String(l.hours));
-                    if (!isNaN(newHrs)) onUpdate(idx, { hours: newHrs });
-                  }}>Edit</Button>
+                  <>
+                    <input
+                      type="number"
+                      step="0.1"
+                      value={l.hours}
+                      onChange={(e) => {
+                        const newHrs = parseFloat(e.target.value) || 0;
+                        onUpdate(idx, { hours: newHrs });
+                      }}
+                      className="w-12 border rounded px-1"
+                    />
+                    <span>@</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={l.rate}
+                      onChange={(e) => {
+                        const newRate = parseFloat(e.target.value) || 0;
+                        onUpdate(idx, { rate: newRate });
+                      }}
+                      className="w-14 border rounded px-1"
+                    />
+                  </>
+                )}
+                {!onUpdate && (
+                  <span>{l.hours}h @ ${l.rate}</span>
                 )}
                 <Button size="sm" variant="destructive" onClick={() => onRemove(idx)}>×</Button>
               </div>

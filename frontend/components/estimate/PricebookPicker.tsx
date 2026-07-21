@@ -58,12 +58,12 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
 
       <div className="border-t pt-4">
         <div className="text-sm font-medium mb-2">Or add custom item</div>
-        <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
-          <div className="flex-1">Item name</div>
-          <div className="w-24 text-center">Unit cost</div>
-          <div className="w-16 text-center">Qty</div>
-          <div className="w-12" />
-        </div>
+          <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
+            <div className="flex-1">Item name</div>
+            <div className="w-24 text-center">Cost</div>
+            <div className="w-16 text-center">Qty</div>
+            <div className="w-12" />
+          </div>
         <div className="flex gap-2">
           <Input
             placeholder="Item name"
@@ -71,13 +71,13 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
             onChange={(e) => setCustomName(e.target.value)}
             className="flex-1"
           />
-          <Input
-            type="number"
-            placeholder="Unit cost"
-            value={customCost}
-            onChange={(e) => setCustomCost(parseFloat(e.target.value) || 0)}
-            className="w-24"
-          />
+            <Input
+              type="number"
+              placeholder="Cost"
+              value={customCost}
+              onChange={(e) => setCustomCost(parseFloat(e.target.value) || 0)}
+              className="w-24"
+            />
           <Input
             type="number"
             placeholder="Qty"

@@ -28,23 +28,38 @@ export function MaterialList({ materials, onRemove, onUpdate, showSelling = true
                 ${m.cost.toFixed(2)} × {m.qty}
               </div>
             </div>
-            {showSelling && (
+            {showSelling && onUpdate && (
+              <input
+                type="number"
+                step="0.01"
+                value={selling}
+                onChange={(e) => {
+                  const newSell = parseFloat(e.target.value) || 0;
+                  onUpdate(idx, { sellingPrice: newSell });
+                }}
+                className="w-20 text-right mr-3 font-semibold tabular-nums border rounded px-1"
+              />
+            )}
+            {!onUpdate && showSelling && (
               <div className="text-right mr-3 font-semibold tabular-nums">
                 ${selling.toFixed(2)}
               </div>
             )}
-            <div className="flex gap-1">
+            <div className="flex gap-1 items-center">
               {onUpdate && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    const newQty = parseFloat(prompt('New quantity?', String(m.qty)) || String(m.qty));
-                    if (!isNaN(newQty)) onUpdate(idx, { qty: newQty });
+                <input
+                  type="number"
+                  step="0.1"
+                  value={m.qty}
+                  onChange={(e) => {
+                    const newQty = parseFloat(e.target.value) || 1;
+                    onUpdate(idx, { qty: newQty });
                   }}
-                >
-                  Edit
-                </Button>
+                  className="w-14 border rounded px-1"
+                />
+              )}
+              {!onUpdate && (
+                <div className="text-xs text-muted-foreground mr-1">×{m.qty}</div>
               )}
               <Button size="sm" variant="destructive" onClick={() => onRemove(idx)}>
                 ×

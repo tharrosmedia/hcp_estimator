@@ -40,10 +40,12 @@ export function calculatePreview(input: PreviewCalcInput): PreviewCalcResult {
   const tax = materialsSubtotal * taxRate;
   const grandTotal = materialsSubtotal + tax;
 
+  const ccLabel = `Credit Card (+${(ccFee * 100).toFixed(2)}%)`;
+  const finLabel = `Financing (+${(finFee * 100).toFixed(2)}%)`;
   const variants = [
     { type: 'cash' as const, label: 'Cash', total: grandTotal, fee: 0 },
-    { type: 'credit_card' as const, label: 'Credit Card (+3%)', total: grandTotal * (1 + ccFee), fee: grandTotal * ccFee },
-    { type: 'financing' as const, label: 'Financing (+4.99%)', total: grandTotal * (1 + finFee), fee: grandTotal * finFee },
+    { type: 'credit_card' as const, label: ccLabel, total: grandTotal * (1 + ccFee), fee: grandTotal * ccFee },
+    { type: 'financing' as const, label: finLabel, total: grandTotal * (1 + finFee), fee: grandTotal * finFee },
   ];
 
   return {

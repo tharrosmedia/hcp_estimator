@@ -335,15 +335,15 @@ export default function NewEstimateWizard() {
             />
 
             <div className="my-4">
-              <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
-                <div className="flex-1">Custom name</div>
-                <div className="w-24 text-center">Unit cost</div>
-                <div className="w-16 text-center">Qty</div>
-                <div className="w-12" />
-              </div>
+                <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
+                  <div className="flex-1">Custom name</div>
+                  <div className="w-24 text-center">Cost</div>
+                  <div className="w-16 text-center">Qty</div>
+                  <div className="w-12" />
+                </div>
               <div className="flex gap-2 mb-2">
                 <Input placeholder="Custom name" value={matForm.name} onChange={e => setMatForm({ ...matForm, name: e.target.value })} className="flex-1" />
-                <Input type="number" placeholder="Unit cost" value={matForm.cost} onChange={e => setMatForm({ ...matForm, cost: parseFloat(e.target.value) || 0 })} className="w-24" />
+                <Input type="number" placeholder="Cost" value={matForm.cost} onChange={e => setMatForm({ ...matForm, cost: parseFloat(e.target.value) || 0 })} className="w-24" />
                 <Input type="number" placeholder="Qty" value={matForm.qty} onChange={e => setMatForm({ ...matForm, qty: parseFloat(e.target.value) || 1 })} className="w-16" />
                 <Button onClick={handleAddMaterial}>Add</Button>
               </div>
