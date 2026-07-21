@@ -2,8 +2,8 @@ import { db } from './lib/db';
 import { seedDefaultRules } from './lib/db/seed';
 import { syncPricebook } from './lib/services/pricebook';
 import { db as schemaDb, users } from './lib/db';
-import { eq, sql } from 'drizzle-orm';
-import { migrate } from 'drizzle-orm/neon-http/migrator';
+import { eq } from 'drizzle-orm';
+import { neon } from '@neondatabase/serverless';
 import cron from 'node-cron';
 import path from 'path';
 import fs from 'fs';
@@ -11,6 +11,9 @@ import { migration0000 } from './lib/db/migration-sql';
 
 export async function register() {
   try {
+    const connectionString = process.env.DATABASE_URL || '';
+    const rawSql = connectionString ? neon(connectionString) : null;
+
     // Apply schema using embedded SQL (guaranteed, no runtime file dependency)
     const statements = migration0000
       .split('--> statement-breakpoint')
@@ -18,13 +21,15 @@ export async function register() {
       .filter(Boolean);
 
     console.log('[MIGRATE] Applying', statements.length, 'schema statements from embedded SQL');
-    for (const stmt of statements) {
-      try {
-        await db.execute(sql.raw(stmt));
-      } catch (stmtErr: any) {
-        // Ignore duplicate table / constraint errors (IF NOT EXISTS + DO blocks)
-        if (!/already exists|duplicate_object/i.test(String(stmtErr?.message || stmtErr))) {
-          console.error('[MIGRATE] Statement error (non-fatal):', stmtErr);
+    if (rawSql) {
+      for (const stmt of statements) {
+        try {
+          await rawSql.query(stmt);
+        } catch (stmtErr: any) {
+          // Ignore duplicate table / constraint errors (IF NOT EXISTS + DO blocks)
+          if (!/already exists|duplicate_object/i.test(String(stmtErr?.message || stmtErr))) {
+            console.error('[MIGRATE] Statement error (non-fatal):', stmtErr);
+          }
         }
       }
     }
@@ -36,7 +41,9 @@ export async function register() {
     console.log('[MIGRATE] Using embedded SQL only (file migrator skipped to avoid driver incompatibility)');
 
     // Basic DB connectivity check
-    await db.execute(sql`select 1`);
+    if (rawSql) {
+      await rawSql`select 1`;
+    }
 
     // Seed defaults
     try {
@@ -70,11 +77,13 @@ export async function register() {
     }
 
     // Verify a core table exists (post-migration check)
-    try {
-      const res = await db.execute(sql`SELECT COUNT(*) FROM users`);
-      console.log('[DB] users table count (post-migrate):', res);
-    } catch (verifyErr) {
-      console.error('[DB] Verification query failed (non-fatal):', verifyErr);
+    if (rawSql) {
+      try {
+        const res = await rawSql`SELECT COUNT(*) FROM users`;
+        console.log('[DB] users table count (post-migrate):', res);
+      } catch (verifyErr) {
+        console.error('[DB] Verification query failed (non-fatal):', verifyErr);
+      }
     }
 
     console.log('🚀 App startup complete (migrations applied, DB connected, rules seeded, cron scheduled)');
