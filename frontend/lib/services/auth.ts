@@ -53,7 +53,7 @@ export async function findOrCreateUser(email: string, name?: string): Promise<an
     user = newUser;
   }
   if (user) {
-    user.role = (user.role as string).toLowerCase() as any;
+    user.role = ((user.role as any) || 'sales').toString().toLowerCase() as any;
   }
   return user;
 }
