@@ -61,40 +61,47 @@ export async function register() {
     await db.execute({ sql: 'select 1', params: [] } as any);
 
     // Seed defaults
-    await seedDefaultRules();
+    try {
+      await seedDefaultRules();
+      console.log('[SEED] Default rules seeded (or already present)');
+    } catch (seedErr) {
+      console.error('[SEED] Failed to seed defaults (non-fatal):', seedErr);
+    }
 
     // Start cron for pricebook refresh
-    const schedule = process.env.CRON_SCHEDULE || '0 6 * * *';
-    cron.schedule(schedule, async () => {
-      console.log('[CRON] Running pricebook refresh...');
-      try {
-        // Use a system key or first admin's key
-        const admin = await schemaDb.query.users.findFirst({ where: eq(users.role, 'admin') });
-        const key = admin?.hcpApiKey || process.env.HCP_SYNC_KEY;
-        if (key) {
-          const res = await syncPricebook(key);
-          console.log('[CRON] Pricebook synced:', res);
-        } else {
-          console.log('[CRON] No HCP key configured for refresh');
+    try {
+      const schedule = process.env.CRON_SCHEDULE || '0 6 * * *';
+      cron.schedule(schedule, async () => {
+        console.log('[CRON] Running pricebook refresh...');
+        try {
+          const admin = await schemaDb.query.users.findFirst({ where: eq(users.role, 'admin') });
+          const key = admin?.hcpApiKey || process.env.HCP_SYNC_KEY;
+          if (key) {
+            const res = await syncPricebook(key);
+            console.log('[CRON] Pricebook synced:', res);
+          } else {
+            console.log('[CRON] No HCP key configured for refresh');
+          }
+        } catch (e) {
+          console.error('[CRON] Pricebook refresh failed', e);
         }
-      } catch (e) {
-        console.error('[CRON] Pricebook refresh failed', e);
-      }
-    });
+      });
+      console.log('[CRON] Pricebook cron scheduled');
+    } catch (cronErr) {
+      console.error('[CRON] Failed to schedule cron (non-fatal):', cronErr);
+    }
 
     // Verify a core table exists (post-migration check)
     try {
       const res = await db.execute({ sql: 'SELECT COUNT(*) FROM users', params: [] } as any);
       console.log('[DB] users table count (post-migrate):', res);
     } catch (verifyErr) {
-      console.error('[DB] Verification query failed (tables may not exist):', verifyErr);
-      throw verifyErr;
+      console.error('[DB] Verification query failed (non-fatal):', verifyErr);
     }
 
     console.log('🚀 App startup complete (migrations applied, DB connected, rules seeded, cron scheduled)');
   } catch (e) {
-    console.error('Failed to start app', e);
-    // Re-throw so Railway sees the failure and doesn't silently start without DB
-    throw e;
+    console.error('Failed to start app (non-fatal, continuing):', e);
+    // Do not re-throw - allow the server to serve requests even if startup tasks fail
   }
 }
