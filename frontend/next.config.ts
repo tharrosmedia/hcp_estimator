@@ -1,12 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
-  experimental: {
-    outputFileTracingIncludes: {
-      '**/*': ['./drizzle/**/*'],
-    },
+  outputFileTracingIncludes: {
+    '**/*': ['./drizzle/**/*'],
   },
+  /* config options here */
 };
 
 export default nextConfig;
