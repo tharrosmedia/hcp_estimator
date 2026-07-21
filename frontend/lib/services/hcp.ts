@@ -20,7 +20,7 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
 
   try {
     // Real call
-    const res = await axios.get(`${HCP_BASE}/pricebook/items`, {
+    const res = await axios.get(`${HCP_BASE}/v1/pricebook/items`, {
       headers: getHeaders(apiKey) as any,
       params: { per_page: 100 },
     });
@@ -45,11 +45,11 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
       return getMockPricebook();
     }
     const status = err.response?.status;
-    let msg = err.message;
     if (status === 404) {
-      msg = '404 from HCP (likely invalid or unauthorized API key, or pricebook not accessible for this key). Re-generate and re-save your HCP API key in Admin.';
+      console.warn('HCP pricebook fetch returned 404 - treating as empty list (invalid key or no pricebook access)');
+      return [];
     }
-    throw new Error(`HCP pricebook fetch failed: ${msg}`);
+    throw new Error(`HCP pricebook fetch failed: ${err.message}`);
   }
 }
 
@@ -60,7 +60,7 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
   }
 
   try {
-    const res = await axios.post(`${HCP_BASE}/estimates`, {
+    const res = await axios.post(`${HCP_BASE}/v1/estimates`, {
       customer: payload.customer,
       line_items: payload.materials.map(m => ({
         name: m.name,
@@ -109,7 +109,7 @@ export async function fetchHcpJobs(apiKey: string, opts: { date?: string; search
       // HCP supports scheduled_start or date filters; using simple for broad compat
       params.scheduled_date = opts.date;
     }
-    const res = await axios.get(`${HCP_BASE}/jobs`, {
+    const res = await axios.get(`${HCP_BASE}/v1/jobs`, {
       headers: getHeaders(apiKey) as any,
       params,
     });
