@@ -12,6 +12,7 @@ export default function AdminPage() {
   const [newKey, setNewKey] = useState('');
   const [newValue, setNewValue] = useState('');
   const [hcpKey, setHcpKey] = useState('');
+  const [hasHcpKey, setHasHcpKey] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -24,7 +25,9 @@ export default function AdminPage() {
         api.get('/admin/hcp-key'),
       ]);
       setSettings(s.data);
-      // key fetch is just presence
+      if (k.data) {
+        setHasHcpKey(!!k.data.hasKey);
+      }
     } catch (e) {}
   };
 
@@ -37,8 +40,15 @@ export default function AdminPage() {
   };
 
   const saveHcpKey = async () => {
-    await api.post('/admin/hcp-key', { hcpApiKey: hcpKey });
-    toast.success('HCP key saved for your account');
+    if (!hcpKey) return;
+    try {
+      await api.post('/admin/hcp-key', { hcpApiKey: hcpKey });
+      toast.success('HCP key saved for your account');
+      setHasHcpKey(true);
+      setHcpKey(''); // clear input after save (it's sensitive)
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to save key');
+    }
   };
 
   const refreshPricebook = async () => {
@@ -71,8 +81,16 @@ export default function AdminPage() {
       <Card>
         <CardHeader><CardTitle>Your Housecall Pro API Key</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <Input type="password" placeholder="Paste your HCP API key" value={hcpKey} onChange={e => setHcpKey(e.target.value)} />
+          <Input 
+            type="password" 
+            placeholder="Paste your HCP API key" 
+            value={hcpKey} 
+            onChange={e => setHcpKey(e.target.value)} 
+          />
           <Button onClick={saveHcpKey}>Save Key</Button>
+          {hasHcpKey && (
+            <div className="text-xs text-green-600">A key is currently saved for your account.</div>
+          )}
           <div className="text-xs">Used for pushing estimates and pricebook sync.</div>
         </CardContent>
       </Card>

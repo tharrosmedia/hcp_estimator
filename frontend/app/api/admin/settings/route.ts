@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, requireRole } from '@/lib/auth';
-import { db, settings } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { rawSql } from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -12,7 +11,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
   }
 
-  const all = await db.select().from(settings);
+  if (!rawSql) return NextResponse.json([]);
+  const all = await rawSql`SELECT * FROM settings ORDER BY key`;
   return NextResponse.json(all);
 }
 
@@ -28,11 +28,20 @@ export async function POST(request: NextRequest) {
   const { key, value } = await request.json();
   if (!key || value === undefined) return NextResponse.json({ error: 'key and value required' }, { status: 400 });
 
-  const existing = await db.query.settings.findFirst({ where: eq(settings.key, key) });
-  if (existing) {
-    await db.update(settings).set({ value, updatedAt: new Date() }).where(eq(settings.key, key));
+  if (!rawSql) return NextResponse.json({ error: 'No database' }, { status: 500 });
+
+  const existing = await rawSql`SELECT * FROM settings WHERE key = ${key} LIMIT 1`;
+  if (existing.length > 0) {
+    await rawSql`
+      UPDATE settings 
+      SET value = ${value}, updated_at = NOW() 
+      WHERE key = ${key}
+    `;
   } else {
-    await db.insert(settings).values({ key, value });
+    await rawSql`
+      INSERT INTO settings (key, value) 
+      VALUES (${key}, ${value})
+    `;
   }
   return NextResponse.json({ success: true });
 }
