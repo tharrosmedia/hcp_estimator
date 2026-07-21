@@ -8,7 +8,7 @@ export interface User {
   email: string;
   name: string | null;
   role: UserRole;
-  hcpApiKey: string | null; // encrypted at rest in prod
+  hcpApiKey: string | null; // encrypted at rest (see lib/encrypt.ts)
   markupOverride: number | null; // e.g. 0.4 for 40%
   createdAt: string;
   updatedAt: string;
@@ -137,6 +137,7 @@ export interface CreateEstimatePayload {
     unitPrice: number;
     quantity: number;
   }>;
+  jobId?: string | null;  // for linking to HCP job
 }
 
 export interface AuthTokenPayload {

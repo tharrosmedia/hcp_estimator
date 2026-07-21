@@ -57,6 +57,7 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
         unit_price: m.unitPrice,
         quantity: m.quantity,
       })),
+      ...(payload.jobId ? { job_id: payload.jobId } : {}),
       // Do NOT include labor
     }, {
       headers: getHeaders(apiKey) as any,
@@ -73,6 +74,67 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
     }
     throw new Error(`Failed to create HCP estimate: ${err.message}`);
   }
+}
+
+export interface HcpJob {
+  id: string;
+  scheduled_date?: string;
+  customer?: { name?: string; email?: string; phone?: string };
+  address?: string;
+  notes?: string;
+}
+
+export async function fetchHcpJobs(apiKey: string, opts: { date?: string; search?: string } = {}): Promise<HcpJob[]> {
+  if (!apiKey) {
+    throw new Error('HCP API key required');
+  }
+
+  try {
+    const params: any = { per_page: 50 };
+    if (opts.date) {
+      // HCP supports scheduled_start or date filters; using simple for broad compat
+      params.scheduled_date = opts.date;
+    }
+    const res = await axios.get(`${HCP_BASE}/jobs`, {
+      headers: getHeaders(apiKey) as any,
+      params,
+    });
+
+    let jobs = res.data?.jobs || res.data || [];
+    if (opts.search) {
+      const q = opts.search.toLowerCase();
+      jobs = jobs.filter((j: any) => (j.customer?.name || '').toLowerCase().includes(q));
+    }
+    return jobs.map((j: any) => ({
+      id: j.id || j.uuid,
+      scheduled_date: j.scheduled_date || j.scheduled_start || j.date,
+      customer: j.customer,
+      address: j.address || j.service_location?.address || undefined,
+      notes: j.notes || undefined,
+    }));
+  } catch (err: any) {
+    if (env.DEV_BYPASS || process.env.NODE_ENV !== 'production') {
+      console.warn('HCP jobs fetch failed, returning mock jobs');
+      return getMockJobs(opts);
+    }
+    throw new Error(`HCP jobs fetch failed: ${err.message}`);
+  }
+}
+
+function getMockJobs(opts: { date?: string; search?: string } = {}): HcpJob[] {
+  const today = new Date().toISOString().slice(0, 10);
+  const mocks: HcpJob[] = [
+    { id: 'job-m1', scheduled_date: today, customer: { name: 'John Smith', email: 'john@example.com', phone: '555-0101' }, address: '123 Main St', notes: 'Install new unit' },
+    { id: 'job-m2', scheduled_date: today, customer: { name: 'Jane Doe', email: 'jane@example.com' }, address: '456 Oak Ave' },
+    { id: 'job-m3', scheduled_date: '2026-07-20', customer: { name: 'Acme Corp' } },
+  ];
+  let res = mocks;
+  if (opts.date) res = res.filter(j => j.scheduled_date === opts.date);
+  if (opts.search) {
+    const q = opts.search.toLowerCase();
+    res = res.filter(j => (j.customer?.name || '').toLowerCase().includes(q));
+  }
+  return res;
 }
 
 function getMockPricebook(): PricebookItem[] {

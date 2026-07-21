@@ -18,7 +18,14 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
   const [customQty, setCustomQty] = useState(1);
 
   const filtered = pricebook
-    .filter((p: any) => p.name.toLowerCase().includes(search.toLowerCase()))
+    .filter((p: any) => {
+      const q = search.toLowerCase().trim();
+      if (!q) return false;
+      const name = (p.name || '').toLowerCase();
+      // fuzzy: match any part of search in name (model + title)
+      const terms = q.split(/\s+/);
+      return terms.every(t => name.includes(t));
+    })
     .slice(0, 8);
 
   return (
@@ -51,6 +58,12 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
 
       <div className="border-t pt-4">
         <div className="text-sm font-medium mb-2">Or add custom item</div>
+        <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
+          <div className="flex-1">Item name</div>
+          <div className="w-24 text-center">Unit cost</div>
+          <div className="w-16 text-center">Qty</div>
+          <div className="w-12" />
+        </div>
         <div className="flex gap-2">
           <Input
             placeholder="Item name"
@@ -60,7 +73,7 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
           />
           <Input
             type="number"
-            placeholder="Cost"
+            placeholder="Unit cost"
             value={customCost}
             onChange={(e) => setCustomCost(parseFloat(e.target.value) || 0)}
             className="w-24"

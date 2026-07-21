@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth';
 import * as estimateService from '@/lib/services/estimate';
 import { createHcpEstimate } from '@/lib/services/hcp';
 
+export const runtime = 'nodejs';
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

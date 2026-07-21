@@ -3,6 +3,9 @@ import { getAuthenticatedUser, requireRole } from '@/lib/auth';
 import { syncPricebook } from '@/lib/services/pricebook';
 import { db, users } from '@/lib/db';
 import { eq } from 'drizzle-orm';
+import { decryptApiKey } from '@/lib/encrypt';
+
+export const runtime = 'nodejs';
 
 export async function POST(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -16,7 +19,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const [dbUser] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
-    const key = dbUser?.hcpApiKey || process.env.HCP_SYNC_KEY;
+    const key = await decryptApiKey(dbUser?.hcpApiKey) || process.env.HCP_SYNC_KEY;
     if (!key) {
       return NextResponse.json({ error: 'No HCP API key available for sync' }, { status: 400 });
     }

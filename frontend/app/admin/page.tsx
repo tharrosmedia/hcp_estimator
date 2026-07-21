@@ -14,6 +14,13 @@ export default function AdminPage() {
   const [hcpKey, setHcpKey] = useState('');
   const [hasHcpKey, setHasHcpKey] = useState(false);
 
+  // Pre-defined global settings used by the estimate builder, calcs, etc.
+  const [markup, setMarkup] = useState('0.40');
+  const [taxRate, setTaxRate] = useState('0.06');
+  const [laborRate, setLaborRate] = useState('85');
+  const [creditCardFee, setCreditCardFee] = useState('0.03');
+  const [financingFee, setFinancingFee] = useState('0.0499');
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -24,11 +31,28 @@ export default function AdminPage() {
         api.get('/admin/settings'),
         api.get('/admin/hcp-key'),
       ]);
-      setSettings(s.data);
+      const data = s.data || [];
+      setSettings(data);
+
+      const getVal = (key: string, def: string) => data.find((x: any) => x.key === key)?.value ?? def;
+
+      setMarkup(getVal('markup', '0.40'));
+      setTaxRate(getVal('tax_rate', '0.06'));
+      setLaborRate(getVal('labor_rate', '85'));
+      setCreditCardFee(getVal('credit_card_fee', '0.03'));
+      setFinancingFee(getVal('financing_fee', '0.0499'));
+
       if (k.data) {
         setHasHcpKey(!!k.data.hasKey);
       }
     } catch (e) {}
+  };
+
+  const saveSettingValue = async (key: string, value: string) => {
+    if (!value) return;
+    await api.post('/admin/settings', { key, value });
+    toast.success(`${key} saved`);
+    fetchData();
   };
 
   const saveSetting = async () => {
@@ -66,14 +90,68 @@ export default function AdminPage() {
 
       <Card>
         <CardHeader><CardTitle>Global Settings</CardTitle></CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {settings.map((s, i) => <div key={i} className="text-sm">{s.key}: <code>{s.value}</code></div>)}
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            These power the estimate builder (labor auto-calc, payment variants, etc). Store as decimals (0.40 = 40%).
           </div>
-          <div className="flex gap-2 mt-4">
-            <Input placeholder="key e.g. markup" value={newKey} onChange={e => setNewKey(e.target.value)} />
-            <Input placeholder="value" value={newValue} onChange={e => setNewValue(e.target.value)} />
-            <Button onClick={saveSetting}>Save</Button>
+
+          {/* Laid out important settings */}
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <div className="text-xs font-medium mb-1">Default Markup</div>
+                <div className="flex gap-2">
+                  <Input value={markup} onChange={e => setMarkup(e.target.value)} placeholder="0.40" className="w-28" />
+                  <Button size="sm" onClick={() => saveSettingValue('markup', markup)}>Save</Button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1">Tax Rate</div>
+                <div className="flex gap-2">
+                  <Input value={taxRate} onChange={e => setTaxRate(e.target.value)} placeholder="0.06" className="w-28" />
+                  <Button size="sm" onClick={() => saveSettingValue('tax_rate', taxRate)}>Save</Button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1">Labor Rate ($/hr)</div>
+                <div className="flex gap-2">
+                  <Input value={laborRate} onChange={e => setLaborRate(e.target.value)} placeholder="85" className="w-28" />
+                  <Button size="sm" onClick={() => saveSettingValue('labor_rate', laborRate)}>Save</Button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1">Credit Card Fee</div>
+                <div className="flex gap-2">
+                  <Input value={creditCardFee} onChange={e => setCreditCardFee(e.target.value)} placeholder="0.03" className="w-28" />
+                  <Button size="sm" onClick={() => saveSettingValue('credit_card_fee', creditCardFee)}>Save</Button>
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-medium mb-1">Financing Fee</div>
+                <div className="flex gap-2">
+                  <Input value={financingFee} onChange={e => setFinancingFee(e.target.value)} placeholder="0.0499" className="w-28" />
+                  <Button size="sm" onClick={() => saveSettingValue('financing_fee', financingFee)}>Save</Button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Raw list of all + ability to add custom/other */}
+          <div>
+            <div className="text-xs font-medium mb-1 mt-2">All current settings (including custom)</div>
+            <div className="space-y-1 text-sm">
+              {settings.length === 0 && <div className="text-muted-foreground">None yet (defaults will be seeded on startup).</div>}
+              {settings.map((s, i) => <div key={i}>{s.key}: <code>{s.value}</code></div>)}
+            </div>
+          </div>
+
+          <div className="border-t pt-3">
+            <div className="text-xs text-muted-foreground mb-2">Add custom / other setting:</div>
+            <div className="flex gap-2">
+              <Input placeholder="key e.g. some_other" value={newKey} onChange={e => setNewKey(e.target.value)} className="flex-1" />
+              <Input placeholder="value" value={newValue} onChange={e => setNewValue(e.target.value)} className="w-28" />
+              <Button onClick={saveSetting}>Add/Save</Button>
+            </div>
           </div>
         </CardContent>
       </Card>

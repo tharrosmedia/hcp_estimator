@@ -28,7 +28,7 @@ export async function getEstimateById(id: number, userId?: number) {
 }
 
 export async function createEstimate(data: any, userId: number) {
-  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate } = data;
+  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId } = data;
 
   // Get user settings or global
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
@@ -48,6 +48,7 @@ export async function createEstimate(data: any, userId: number) {
     taxRate: effectiveTax,
     status: 'draft',
     approvalFlag: false,
+    hcpJobId: hcpJobId || null,
   }).returning();
 
   if (materials?.length) {
@@ -118,7 +119,9 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   if (!estimate) throw new Error('Estimate not found');
 
   const user = await db.query.users.findFirst({ where: eq(users.id, userId) });
-  if (!user?.hcpApiKey) throw new Error('User has no HCP API key configured');
+  const { decryptApiKey } = await import('@/lib/encrypt');
+  const apiKey = await decryptApiKey(user?.hcpApiKey);
+  if (!apiKey) throw new Error('User has no HCP API key configured');
 
   // Only send customer-facing line items (materials with marked up price)
   const payload = {
@@ -135,9 +138,10 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
       unitPrice: m.sellingPrice / m.qty,
       quantity: m.qty,
     })),
+    jobId: estimate.hcpJobId || undefined,
   };
 
-  const result = await hcpService.createHcpEstimate(payload, user.hcpApiKey);
+  const result = await hcpService.createHcpEstimate(payload, apiKey);
 
   await db.update(estimates).set({
     status: 'pushed_to_hcp',

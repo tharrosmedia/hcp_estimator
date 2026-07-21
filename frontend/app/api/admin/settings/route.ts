@@ -7,9 +7,8 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!requireRole(user, ['admin', 'manager'])) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-  }
+  // allow any logged-in to read settings for wizard globals (labor_rate, fees)
+  // write still restricted to admin
 
   if (!rawSql) return NextResponse.json([]);
   const all = await rawSql`SELECT * FROM settings ORDER BY key`;

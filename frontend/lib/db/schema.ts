@@ -5,7 +5,7 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   name: text('name'),
   role: text('role').notNull().default('sales'), // sales | manager | admin
-  hcpApiKey: text('hcp_api_key'), // store encrypted in real prod
+  hcpApiKey: text('hcp_api_key'), // encrypted via lib/encrypt.ts (aes-256-gcm)
   markupOverride: real('markup_override'), // e.g. 0.40
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),

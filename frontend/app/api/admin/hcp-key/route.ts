@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth';
 import { rawSql } from '@/lib/db';
+import { encryptApiKey } from '@/lib/encrypt';
+
+export const runtime = 'nodejs';
 
 export async function GET(request: NextRequest) {
   const user = await getAuthenticatedUser(request);
@@ -27,10 +30,14 @@ export async function POST(request: NextRequest) {
   if (!rawSql) {
     return NextResponse.json({ error: 'No database' }, { status: 500 });
   }
+  if (!hcpApiKey) {
+    return NextResponse.json({ error: 'hcpApiKey required' }, { status: 400 });
+  }
 
+  const encrypted = await encryptApiKey(hcpApiKey);
   await rawSql`
     UPDATE users 
-    SET hcp_api_key = ${hcpApiKey} 
+    SET hcp_api_key = ${encrypted} 
     WHERE id = ${user.userId}
   `;
   return NextResponse.json({ success: true });

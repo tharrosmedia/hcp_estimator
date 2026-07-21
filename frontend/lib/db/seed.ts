@@ -22,4 +22,22 @@ export async function seedDefaultRules() {
       ('accessory', 15, 5)
     `;
   }
+
+  // Seed default global settings that the estimate builder and calcs use
+  const defaultSettings = [
+    { key: 'markup', value: '0.40' },
+    { key: 'tax_rate', value: '0.06' },
+    { key: 'labor_rate', value: '85' },
+    { key: 'credit_card_fee', value: '0.03' },
+    { key: 'financing_fee', value: '0.0499' },
+  ];
+
+  for (const ds of defaultSettings) {
+    const existing = await rawSql`SELECT * FROM settings WHERE key = ${ds.key} LIMIT 1`;
+    if (existing.length === 0) {
+      await rawSql`
+        INSERT INTO settings (key, value) VALUES (${ds.key}, ${ds.value})
+      `;
+    }
+  }
 }

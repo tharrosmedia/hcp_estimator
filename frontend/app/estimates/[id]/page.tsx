@@ -37,6 +37,8 @@ export default function EstimateDetail() {
           labor: estRes.data.labor || [],
           markup: estRes.data.markup,
           taxRate: estRes.data.taxRate,
+          creditCardFee: 0.03,
+          financingFee: 0.0499,
         });
         setCalc(preview);
       }
@@ -75,6 +77,8 @@ export default function EstimateDetail() {
     labor: estimate.labor || [],
     markup: estimate.markup,
     taxRate: estimate.taxRate,
+    creditCardFee: 0.03,
+    financingFee: 0.0499,
   });
 
   return (
@@ -96,6 +100,8 @@ export default function EstimateDetail() {
             <div>Status: <span className="font-medium capitalize">{estimate.status.replace('_', ' ')}</span></div>
             <div>Markup: {(estimate.markup * 100).toFixed(0)}%</div>
             <div>Tax: {(estimate.taxRate * 100).toFixed(0)}%</div>
+            {estimate.hcpJobId && <div>HCP Job: <code className="text-xs">{estimate.hcpJobId}</code></div>}
+            {estimate.hcpEstimateId && <div>HCP Estimate: <code className="text-xs">{estimate.hcpEstimateId}</code></div>}
           </div>
 
           <div>

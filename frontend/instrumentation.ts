@@ -8,6 +8,7 @@ import cron from 'node-cron';
 import path from 'path';
 import fs from 'fs';
 import { migration0000 } from './lib/db/migration-sql';
+// Note: cron uses HCP_SYNC_KEY env only (avoids pulling node:crypto into edge instrumentation)
 
 export async function register() {
   try {
@@ -59,8 +60,7 @@ export async function register() {
       cron.schedule(schedule, async () => {
         console.log('[CRON] Running pricebook refresh...');
         try {
-          const [admin] = await schemaDb.select().from(users).where(eq(users.role, 'admin')).limit(1);
-          const key = admin?.hcpApiKey || process.env.HCP_SYNC_KEY;
+          const key = process.env.HCP_SYNC_KEY;
           if (key) {
             const res = await syncPricebook(key);
             console.log('[CRON] Pricebook synced:', res);
