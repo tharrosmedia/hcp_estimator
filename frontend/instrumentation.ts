@@ -11,6 +11,7 @@ export async function register() {
   try {
     // Apply any pending migrations (this makes schema updates ongoing)
     const migrationsFolder = path.resolve(process.cwd(), 'drizzle');
+    console.log('[MIGRATE] Using migrations folder:', migrationsFolder);
     await migrate(db, { migrationsFolder });
 
     // Basic DB connectivity check
