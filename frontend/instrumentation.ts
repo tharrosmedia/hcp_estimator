@@ -6,12 +6,31 @@ import { eq } from 'drizzle-orm';
 import { migrate } from 'drizzle-orm/neon-http/migrator';
 import cron from 'node-cron';
 import path from 'path';
+import fs from 'fs';
 
 export async function register() {
   try {
     // Apply any pending migrations (this makes schema updates ongoing)
-    const migrationsFolder = path.resolve(process.cwd(), 'drizzle');
+    // Robust resolution for monorepo + Railway / Next production layouts
+    const candidates = [
+      path.resolve(process.cwd(), 'drizzle'),
+      path.resolve(process.cwd(), 'frontend', 'drizzle'),
+      // When running from .next/server/instrumentation.js
+      path.resolve(__dirname, '..', '..', '..', 'drizzle'),
+      path.resolve(__dirname, '..', '..', 'drizzle'),
+    ];
+    let migrationsFolder = candidates[0];
+    for (const candidate of candidates) {
+      const sqlPath = path.join(candidate, '0000_purple_bloodstrike.sql');
+      if (fs.existsSync(sqlPath)) {
+        migrationsFolder = candidate;
+        break;
+      }
+    }
+    console.log('[MIGRATE] cwd:', process.cwd());
+    console.log('[MIGRATE] __dirname:', __dirname);
     console.log('[MIGRATE] Using migrations folder:', migrationsFolder);
+    console.log('[MIGRATE] sql file exists:', fs.existsSync(path.join(migrationsFolder, '0000_purple_bloodstrike.sql')));
     await migrate(db, { migrationsFolder });
 
     // Basic DB connectivity check
@@ -39,8 +58,19 @@ export async function register() {
       }
     });
 
+    // Verify a core table exists (post-migration check)
+    try {
+      const res = await db.execute({ sql: 'SELECT COUNT(*) FROM users', params: [] } as any);
+      console.log('[DB] users table count (post-migrate):', res);
+    } catch (verifyErr) {
+      console.error('[DB] Verification query failed (tables may not exist):', verifyErr);
+      throw verifyErr;
+    }
+
     console.log('🚀 App startup complete (migrations applied, DB connected, rules seeded, cron scheduled)');
   } catch (e) {
     console.error('Failed to start app', e);
+    // Re-throw so Railway sees the failure and doesn't silently start without DB
+    throw e;
   }
 }
