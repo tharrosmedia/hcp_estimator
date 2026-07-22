@@ -19,21 +19,34 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
   }
 
   try {
-    // Real call
-    const res = await axios.get(`${HCP_BASE}/v1/pricebook/items`, {
-      headers: getHeaders(apiKey) as any,
-      params: { per_page: 100 },
-    });
+    // Real call to correct Housecall Pro materials endpoint
+    const allItems: any[] = [];
+    const perPage = 100;
+    let page = 1;
 
-    const items = res.data?.items || res.data || [];
-    return items.map((item: any) => ({
+    while (true) {
+      const res = await axios.get(`${HCP_BASE}/api/price_book/materials`, {
+        headers: getHeaders(apiKey) as any,
+        params: { per_page: perPage, page },
+      });
+
+      const pageItems = res.data?.materials || res.data?.items || res.data || [];
+      allItems.push(...pageItems);
+
+      if (pageItems.length < perPage) break;
+      page++;
+      if (page > 20) break; // safety cap
+    }
+
+    console.log(`[HCP] Fetched ${allItems.length} pricebook materials`);
+    return allItems.map((item: any) => ({
       id: 0, // will be assigned on upsert
       hcpId: item.id || item.uuid,
       name: item.name || item.title,
       description: item.description || null,
       cost: parseFloat(item.unit_cost || item.cost || 0),
       category: item.category || item.type || null,
-      unit: item.unit || null,
+      unit: item.unit || item.unit_of_measure || null,
       linesetFt: null,
       linesetCost: null,
       lastSyncedAt: new Date().toISOString(),
@@ -43,11 +56,6 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
     if (env.DEV_BYPASS || process.env.NODE_ENV !== 'production') {
       console.warn('HCP fetch failed, returning mock pricebook');
       return getMockPricebook();
-    }
-    const status = err.response?.status;
-    if (status === 404) {
-      console.warn('HCP pricebook fetch returned 404 - treating as empty list (invalid key or no pricebook access)');
-      return [];
     }
     throw new Error(`HCP pricebook fetch failed: ${err.message}`);
   }

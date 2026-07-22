@@ -13,6 +13,7 @@ export default function AdminPage() {
   const [newValue, setNewValue] = useState('');
   const [hcpKey, setHcpKey] = useState('');
   const [hasHcpKey, setHasHcpKey] = useState(false);
+  const [pricebookCount, setPricebookCount] = useState<number | null>(null);
 
   // Pre-defined global settings used by the estimate builder, calcs, etc.
   const [markup, setMarkup] = useState('0.40');
@@ -20,10 +21,6 @@ export default function AdminPage() {
   const [laborRate, setLaborRate] = useState('85');
   const [creditCardFee, setCreditCardFee] = useState('0.03');
   const [financingFee, setFinancingFee] = useState('0.0499');
-
-  useEffect(() => {
-    fetchData();
-  }, []);
 
   const fetchData = async () => {
     try {
@@ -45,8 +42,18 @@ export default function AdminPage() {
       if (k.data) {
         setHasHcpKey(!!k.data.hasKey);
       }
+
+      // load current pricebook count (clean UX)
+      try {
+        const pb = await api.get('/pricebook');
+        setPricebookCount((pb.data || []).length);
+      } catch {}
     } catch (e) {}
   };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
 
   const saveSettingValue = async (key: string, value: string) => {
     if (!value && value !== '0') return;
@@ -85,8 +92,13 @@ export default function AdminPage() {
 
   const refreshPricebook = async () => {
     try {
-      await api.post('/pricebook/refresh');
-      toast.success('Pricebook refresh triggered');
+      const { data } = await api.post('/pricebook/refresh');
+      toast.success(`Pricebook refreshed: ${data.synced ?? 0} items`);
+      // refresh count after successful sync
+      try {
+        const pb = await api.get('/pricebook');
+        setPricebookCount((pb.data || []).length);
+      } catch {}
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Failed');
     }
@@ -185,7 +197,10 @@ export default function AdminPage() {
         <CardHeader><CardTitle>Pricebook</CardTitle></CardHeader>
         <CardContent>
           <Button onClick={refreshPricebook} className="w-full">Refresh Pricebook from HCP</Button>
-          <p className="text-xs mt-2 text-muted-foreground">Scheduled daily via cron.</p>
+          {pricebookCount !== null && (
+            <p className="text-xs mt-2 text-muted-foreground">Currently {pricebookCount} items in database.</p>
+          )}
+          <p className="text-xs mt-1 text-muted-foreground">Scheduled daily via cron.</p>
         </CardContent>
       </Card>
 

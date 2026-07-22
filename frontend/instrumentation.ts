@@ -8,7 +8,7 @@ import cron from 'node-cron';
 import path from 'path';
 import fs from 'fs';
 import { migration0000 } from './lib/db/migration-sql';
-// Note: cron uses HCP_SYNC_KEY env only (avoids pulling node:crypto into edge instrumentation)
+// Cron now decrypts a user's saved HCP key (preferred) with HCP_SYNC_KEY as fallback.
 
 export async function register() {
   try {
@@ -60,7 +60,14 @@ export async function register() {
       cron.schedule(schedule, async () => {
         console.log('[CRON] Running pricebook refresh...');
         try {
-          const key = process.env.HCP_SYNC_KEY;
+          let key: string | null = process.env.HCP_SYNC_KEY || null;
+          if (rawSql) {
+            const rows = await rawSql`SELECT hcp_api_key FROM users WHERE hcp_api_key IS NOT NULL LIMIT 1`;
+            if (rows[0]?.hcp_api_key) {
+              const { decryptApiKey } = await import('./lib/encrypt');
+              key = await decryptApiKey(rows[0].hcp_api_key) || key;
+            }
+          }
           if (key) {
             const res = await syncPricebook(key);
             console.log('[CRON] Pricebook synced:', res);

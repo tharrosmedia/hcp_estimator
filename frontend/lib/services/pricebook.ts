@@ -1,35 +1,45 @@
-import { db, pricebookItems } from '@/lib/db';
-import { eq } from 'drizzle-orm';
+import { rawSql } from '@/lib/db';
 import { fetchPricebookItems } from './hcp';
 import { PricebookItem } from '@/lib/shared/types';
 
+function mapPricebookItem(row: any): PricebookItem {
+  if (!row) return null as any;
+  return {
+    id: row.id,
+    hcpId: row.hcp_id,
+    name: row.name,
+    description: row.description,
+    cost: row.cost,
+    category: row.category,
+    unit: row.unit,
+    linesetFt: row.lineset_ft,
+    linesetCost: row.lineset_cost,
+    lastSyncedAt: row.last_synced_at,
+  };
+}
+
 export async function syncPricebook(apiKey: string): Promise<{ synced: number }> {
+  if (!rawSql) return { synced: 0 };
   const items = await fetchPricebookItems(apiKey);
 
   let synced = 0;
 
   for (const item of items) {
-    const existing = await db.query.pricebookItems.findFirst({
-      where: eq(pricebookItems.hcpId, item.hcpId || ''),
-    });
+    if (!item.hcpId) continue;
 
-    const data = {
-      hcpId: item.hcpId,
-      name: item.name,
-      description: item.description,
-      cost: item.cost,
-      category: item.category,
-      unit: item.unit,
-      linesetFt: item.linesetFt,
-      linesetCost: item.linesetCost,
-      lastSyncedAt: new Date(),
-    };
-
-    if (existing) {
-      await db.update(pricebookItems).set(data).where(eq(pricebookItems.id, existing.id));
-    } else {
-      await db.insert(pricebookItems).values(data);
-    }
+    await rawSql`
+      INSERT INTO pricebook_items (hcp_id, name, description, cost, category, unit, lineset_ft, lineset_cost, last_synced_at)
+      VALUES (${item.hcpId}, ${item.name}, ${item.description}, ${item.cost}, ${item.category}, ${item.unit}, ${item.linesetFt}, ${item.linesetCost}, NOW())
+      ON CONFLICT (hcp_id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        cost = EXCLUDED.cost,
+        category = EXCLUDED.category,
+        unit = EXCLUDED.unit,
+        lineset_ft = EXCLUDED.lineset_ft,
+        lineset_cost = EXCLUDED.lineset_cost,
+        last_synced_at = NOW()
+    `;
     synced++;
   }
 
@@ -37,5 +47,8 @@ export async function syncPricebook(apiKey: string): Promise<{ synced: number }>
 }
 
 export async function getAllPricebookItems(): Promise<PricebookItem[]> {
-  return db.select().from(pricebookItems);
+  if (!rawSql) return [];
+  const db = rawSql;
+  const rows = await db`SELECT * FROM pricebook_items ORDER BY name`;
+  return rows.map(mapPricebookItem);
 }
