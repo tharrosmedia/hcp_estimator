@@ -4,10 +4,55 @@ import { PricebookItem, CreateEstimatePayload } from '@/lib/shared/types';
 
 const HCP_BASE = env.HCP_BASE_URL || 'https://api.housecallpro.com';
 
+function sleep(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 function getHeaders(apiKey: string) {
   return {
     Authorization: `Token token="${apiKey}"`,
+    Accept: 'application/json',
   };
+}
+
+export async function fetchMaterialCategories(apiKey: string): Promise<any[]> {
+  if (!apiKey) {
+    throw new Error('HCP API key required');
+  }
+  if (apiKey.startsWith('enc:')) {
+    throw new Error('HCP API key is still encrypted. Please re-save it in the admin panel.');
+  }
+
+  try {
+    const allCategories: any[] = [];
+    let page = 1;
+    const pageSize = 100;
+
+    while (true) {
+      const res = await axios.get(`${HCP_BASE}/api/price_book/material_categories`, {
+        headers: getHeaders(apiKey) as any,
+        params: { page, page_size: pageSize },
+      });
+
+      const rawItems = res.data?.data || res.data || [];
+      const items = Array.isArray(rawItems) ? rawItems : (rawItems ? [rawItems] : []);
+      allCategories.push(...items);
+
+      if (items.length < pageSize) break;
+      page++;
+      await sleep(100);
+      if (page > 20) break; // safety cap
+    }
+
+    console.log(`[HCP] Fetched ${allCategories.length} material categories`);
+    return allCategories;
+  } catch (err: any) {
+    if (env.DEV_BYPASS || process.env.NODE_ENV !== 'production') {
+      console.warn('HCP categories fetch failed, returning empty');
+      return [];
+    }
+    throw new Error(`HCP material categories fetch failed: ${err.message}`);
+  }
 }
 
 export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem[]> {
@@ -19,34 +64,46 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
   }
 
   try {
-    // Real call to correct Housecall Pro materials endpoint
+    const categories = await fetchMaterialCategories(apiKey);
+    if (categories.length === 0) {
+      console.warn('[HCP] No material categories returned from HCP; pricebook will be empty');
+    }
     const allItems: any[] = [];
-    const perPage = 100;
-    let page = 1;
+    const pageSize = 100;
 
-    while (true) {
-      const res = await axios.get(`${HCP_BASE}/api/price_book/materials`, {
-        headers: getHeaders(apiKey) as any,
-        params: { per_page: perPage, page },
-      });
+    for (const cat of categories) {
+      if (!cat.uuid) continue;
+      let page = 1;
+      while (true) {
+        const res = await axios.get(`${HCP_BASE}/api/price_book/materials`, {
+          headers: getHeaders(apiKey) as any,
+          params: { material_category_uuid: cat.uuid, page, page_size: pageSize },
+        });
 
-      const pageItems = res.data?.materials || res.data?.items || res.data || [];
-      allItems.push(...pageItems);
+        const rawItems = res.data?.data || res.data || [];
+        const items = Array.isArray(rawItems) ? rawItems : (rawItems ? [rawItems] : []);
+        allItems.push(...items);
 
-      if (pageItems.length < perPage) break;
-      page++;
-      if (page > 20) break; // safety cap
+        if (items.length < pageSize) break;
+        page++;
+        await sleep(100);
+        if (page > 20) break; // safety cap
+      }
     }
 
     console.log(`[HCP] Fetched ${allItems.length} pricebook materials`);
+    if (allItems.length === 0 && (env.DEV_BYPASS || process.env.NODE_ENV !== 'production')) {
+      console.warn('HCP returned 0 items, returning mock pricebook');
+      return getMockPricebook();
+    }
     return allItems.map((item: any) => ({
       id: 0, // will be assigned on upsert
-      hcpId: item.id || item.uuid,
-      name: item.name || item.title,
+      hcpId: item.uuid,
+      name: item.name,
       description: item.description || null,
-      cost: parseFloat(item.unit_cost || item.cost || 0),
-      category: item.category || item.type || null,
-      unit: item.unit || item.unit_of_measure || null,
+      cost: parseFloat(item.cost || 0),
+      category: item.material_category_name || null,
+      unit: item.unit_of_measure || null,
       linesetFt: null,
       linesetCost: null,
       lastSyncedAt: new Date().toISOString(),
