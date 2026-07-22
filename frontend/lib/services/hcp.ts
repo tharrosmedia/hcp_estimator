@@ -101,7 +101,7 @@ export async function fetchPricebookItems(apiKey: string): Promise<PricebookItem
       hcpId: item.uuid,
       name: item.name,
       description: item.description || null,
-      cost: parseFloat(item.cost || 0),
+      cost: parseFloat(item.cost || 0) / 100,
       category: item.material_category_name || null,
       unit: item.unit_of_measure || null,
       linesetFt: null,
