@@ -188,7 +188,7 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   if (!estimate) throw new Error('Estimate not found');
   if (!rawSql) throw new Error('No database connection');
 
-  const userRows = await rawSql`SELECT hcp_api_key FROM users WHERE id = ${userId} LIMIT 1`;
+  const userRows = await rawSql.query('SELECT hcp_api_key FROM users WHERE id = $1 LIMIT 1', [userId]);
   const { decryptApiKey } = await import('@/lib/encrypt');
   const apiKey = await decryptApiKey(userRows[0]?.hcp_api_key);
   if (!apiKey) throw new Error('User has no HCP API key configured');

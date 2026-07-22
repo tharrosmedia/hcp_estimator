@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No database' }, { status: 500 });
   }
   try {
-    const rows = await rawSql`SELECT hcp_api_key FROM users WHERE id = ${user.userId} LIMIT 1`;
+    const rows = await rawSql.query('SELECT hcp_api_key FROM users WHERE id = $1 LIMIT 1', [user.userId]);
     const key = await decryptApiKey(rows[0]?.hcp_api_key) || process.env.HCP_SYNC_KEY;
     if (!key) {
       return NextResponse.json({ error: 'No HCP API key available for sync' }, { status: 400 });

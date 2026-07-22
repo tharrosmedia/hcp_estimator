@@ -8,7 +8,7 @@ import cron from 'node-cron';
 import path from 'path';
 import fs from 'fs';
 import { migration0000 } from './lib/db/migration-sql';
-// Cron now decrypts a user's saved HCP key (preferred) with HCP_SYNC_KEY as fallback.
+// Cron prioritizes saved user HCP key (decrypted) with HCP_SYNC_KEY only as fallback. Recreate client inside callback for safety.
 
 export async function register() {
   try {
@@ -60,13 +60,19 @@ export async function register() {
       cron.schedule(schedule, async () => {
         console.log('[CRON] Running pricebook refresh...');
         try {
-          let key: string | null = process.env.HCP_SYNC_KEY || null;
-          if (rawSql) {
-            const rows = await rawSql`SELECT hcp_api_key FROM users WHERE hcp_api_key IS NOT NULL LIMIT 1`;
+          let key: string | null = null;
+          const connectionString = process.env.DATABASE_URL || '';
+          if (connectionString) {
+            const { neon } = await import('@neondatabase/serverless');
+            const sql = neon(connectionString);
+            const rows = await sql.query('SELECT hcp_api_key FROM users WHERE hcp_api_key IS NOT NULL LIMIT 1');
             if (rows[0]?.hcp_api_key) {
               const { decryptApiKey } = await import('./lib/encrypt');
-              key = await decryptApiKey(rows[0].hcp_api_key) || key;
+              key = await decryptApiKey(rows[0].hcp_api_key);
             }
+          }
+          if (!key) {
+            key = process.env.HCP_SYNC_KEY || null;
           }
           if (key) {
             const res = await syncPricebook(key);

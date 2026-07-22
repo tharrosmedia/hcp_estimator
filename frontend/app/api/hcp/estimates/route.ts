@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
   try {
     let key: string | null = null;
     if (rawSql) {
-      const rows = await rawSql`SELECT hcp_api_key FROM users WHERE id = ${user.userId} LIMIT 1`;
+      const rows = await rawSql.query('SELECT hcp_api_key FROM users WHERE id = $1 LIMIT 1', [user.userId]);
       key = await decryptApiKey(rows[0]?.hcp_api_key);
     } else {
       const [dbUser] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
