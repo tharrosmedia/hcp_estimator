@@ -80,17 +80,20 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="divide-y">
-              {estimates.map((est) => (
-                <Link key={est.id} href={`/estimates/${est.id}`} className="block py-4 hover:bg-muted/50 px-2 -mx-2 rounded">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <div className="font-medium">{est.customerName}</div>
-                      <div className="text-sm text-muted-foreground">{new Date(est.createdAt).toLocaleDateString()}</div>
-                    </div>
-                    <div className="text-sm px-3 py-1 rounded-full bg-secondary capitalize">{est.status.replace('_', ' ')}</div>
-                  </div>
-                </Link>
-              ))}
+               {estimates.map((est) => {
+                 const href = est.status === 'draft' ? `/estimates/new?id=${est.id}` : `/estimates/${est.id}`;
+                 return (
+                   <Link key={est.id} href={href} className="block py-4 hover:bg-muted/50 px-2 -mx-2 rounded">
+                     <div className="flex justify-between items-center">
+                       <div>
+                         <div className="font-medium">{est.customerName}</div>
+                         <div className="text-sm text-muted-foreground">{new Date(est.createdAt).toLocaleDateString()}</div>
+                       </div>
+                       <div className="text-sm px-3 py-1 rounded-full bg-secondary capitalize">{est.status.replace('_', ' ')}</div>
+                     </div>
+                   </Link>
+                 );
+               })}
             </div>
           )}
         </CardContent>

@@ -136,6 +136,31 @@ export async function updateEstimate(id: number, data: any, userId: number) {
   if (data.approvalFlag !== undefined) await rawSql`UPDATE estimates SET approval_flag = ${data.approvalFlag}, updated_at = NOW() WHERE id = ${id}`;
   if (data.hcpJobId !== undefined) await rawSql`UPDATE estimates SET hcp_job_id = ${data.hcpJobId}, updated_at = NOW() WHERE id = ${id}`;
   if (data.hcpEstimateId !== undefined) await rawSql`UPDATE estimates SET hcp_estimate_id = ${data.hcpEstimateId}, updated_at = NOW() WHERE id = ${id}`;
+
+  const effectiveMarkup = data.markup ?? existing.markup ?? 0.4;
+
+  if (data.materials !== undefined) {
+    await rawSql`DELETE FROM estimate_materials WHERE estimate_id = ${id}`;
+    for (const m of data.materials) {
+      const sell = m.sellingPrice ?? (m.cost * (1 + effectiveMarkup) * m.qty);
+      await rawSql`
+        INSERT INTO estimate_materials (estimate_id, pricebook_item_id, name, description, cost, qty, markup, selling_price)
+        VALUES (${id}, ${m.pricebookItemId || null}, ${m.name}, ${m.description || null}, ${m.cost}, ${m.qty}, ${effectiveMarkup}, ${sell})
+      `;
+    }
+  }
+
+  if (data.labor !== undefined) {
+    await rawSql`DELETE FROM estimate_labor WHERE estimate_id = ${id}`;
+    for (const l of data.labor) {
+      const cost = l.cost ?? (l.hours * l.rate);
+      await rawSql`
+        INSERT INTO estimate_labor (estimate_id, task, hours, rate, cost, notes)
+        VALUES (${id}, ${l.task}, ${l.hours}, ${l.rate}, ${cost}, ${l.notes || null})
+      `;
+    }
+  }
+
   return getEstimateById(id);
 }
 
