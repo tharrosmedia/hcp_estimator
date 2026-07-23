@@ -16,13 +16,6 @@ function getHeaders(apiKey: string) {
   };
 }
 
-function getBareHeaders(apiKey: string) {
-  return {
-    Authorization: apiKey,
-    Accept: 'application/json',
-  };
-}
-
 export async function fetchMaterialCategories(apiKey: string): Promise<any[]> {
   if (!apiKey) {
     throw new Error('HCP API key required');
@@ -146,7 +139,7 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
       ...(payload.jobId ? { job_id: payload.jobId } : {}),
       // Do NOT include labor
     }, {
-      headers: getBareHeaders(apiKey) as any,
+      headers: getHeaders(apiKey) as any,
     });
 
     return {
@@ -179,7 +172,7 @@ export async function updateHcpEstimate(estimateId: string, payload: CreateEstim
         taxable: true,
       })),
     }, {
-      headers: getBareHeaders(apiKey) as any,
+      headers: getHeaders(apiKey) as any,
     });
 
     return {
@@ -211,9 +204,8 @@ export async function createHcpEstimateOption(
       ...(option.tax ? { tax: option.tax } : {}),
     }, {
       headers: {
-        Authorization: apiKey,
+        ...getHeaders(apiKey),
         'Content-Type': 'application/json',
-        Accept: 'application/json',
       } as any,
     });
 
@@ -246,9 +238,8 @@ export async function createHcpOptionNote(
       content: note.content,
     }, {
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        ...getHeaders(apiKey),
         'Content-Type': 'application/json',
-        Accept: 'application/json',
       } as any,
     });
     return res.data || { id: 'mock-note', content: note.content };
@@ -356,7 +347,7 @@ export async function fetchHcpEstimates(apiKey: string, opts: { search?: string 
     while (true) {
       const params: any = { page, page_size: pageSize };
       const res = await axios.get(`${HCP_BASE}/estimates`, {
-        headers: getBareHeaders(apiKey) as any,
+        headers: getHeaders(apiKey) as any,
         params,
       });
 
