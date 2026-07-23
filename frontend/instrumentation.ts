@@ -1,6 +1,7 @@
 import { db } from './lib/db';
 import { seedDefaultRules } from './lib/db/seed';
 import { syncPricebook } from './lib/services/pricebook';
+import { syncHcpEstimates } from './lib/services/hcp';
 import { db as schemaDb, users } from './lib/db';
 import { eq } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
@@ -74,12 +75,15 @@ export async function register() {
           if (!key) {
             key = process.env.HCP_SYNC_KEY || null;
           }
-          if (key) {
-            const res = await syncPricebook(key);
-            console.log('[CRON] Pricebook synced:', res);
-          } else {
-            console.log('[CRON] No HCP key configured for refresh');
-          }
+           if (key) {
+             const pb = await syncPricebook(key);
+             console.log('[CRON] Pricebook synced:', pb);
+             const est = await syncHcpEstimates(key);
+             console.log('[CRON] HCP estimates synced:', est);
+           } else {
+             console.log('[CRON] No HCP key configured for refresh');
+           }
+
         } catch (e) {
           console.error('[CRON] Pricebook refresh failed', e);
         }

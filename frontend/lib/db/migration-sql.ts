@@ -79,7 +79,24 @@ CREATE TABLE IF NOT EXISTS "pricebook_items" (
 	"last_synced_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "pricebook_items_hcp_id_unique" UNIQUE("hcp_id")
 );
---> statement-breakpoint
+ --> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "hcp_estimates" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"hcp_id" text NOT NULL,
+	"estimate_number" text,
+	"work_status" text,
+	"customer_name" text,
+	"customer_email" text,
+	"customer_phone" text,
+	"address" text,
+	"scheduled_start" timestamp,
+	"scheduled_end" timestamp,
+	"status" text,
+	"notes" text,
+	"last_synced_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "hcp_estimates_hcp_id_unique" UNIQUE("hcp_id")
+);
+ --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "settings" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"key" text NOT NULL,

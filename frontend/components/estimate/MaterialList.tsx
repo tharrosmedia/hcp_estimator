@@ -24,6 +24,9 @@ export function MaterialList({ materials, onRemove, onUpdate, showSelling = true
           <div key={idx} className="flex items-center justify-between border p-3 rounded text-sm bg-card">
             <div className="flex-1 min-w-0">
               <div className="font-medium truncate">{m.name}</div>
+              {m.description && m.description !== m.name && (
+                <div className="text-xs text-muted-foreground truncate">{m.description}</div>
+              )}
               <div className="text-xs text-muted-foreground">
                 ${m.cost.toFixed(2)} × {m.qty}
               </div>

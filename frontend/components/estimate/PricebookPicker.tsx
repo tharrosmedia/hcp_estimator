@@ -21,10 +21,10 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
     .filter((p: any) => {
       const q = search.toLowerCase().trim();
       if (!q) return false;
-      const name = (p.name || '').toLowerCase();
-      // fuzzy: match any part of search in name (model + title)
+      const text = `${p.name || ''} ${p.description || ''}`.toLowerCase();
+      // fuzzy: match any part of search in name or description
       const terms = q.split(/\s+/);
-      return terms.every(t => name.includes(t));
+      return terms.every(t => text.includes(t));
     })
     .slice(0, 8);
 
@@ -39,19 +39,24 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
         />
         {search && filtered.length > 0 && (
           <div className="border rounded max-h-40 overflow-auto text-sm">
-            {filtered.map((item: any, i: number) => (
-              <div
-                key={i}
-                onClick={() => {
-                  onSelect({ ...item, cost: item.cost });
-                  setSearch('');
-                }}
-                className="p-2 hover:bg-muted cursor-pointer flex justify-between"
-              >
-                <span>{item.name}</span>
-                <span className="text-muted-foreground">${item.cost}</span>
-              </div>
-            ))}
+              {filtered.map((item: any, i: number) => (
+                <div
+                  key={i}
+                  onClick={() => {
+                    onSelect({ ...item, cost: item.cost });
+                    setSearch('');
+                  }}
+                  className="p-2 hover:bg-muted cursor-pointer flex justify-between gap-2"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="truncate">{item.name}</div>
+                    {item.description && item.description !== item.name && (
+                      <div className="text-xs text-muted-foreground truncate">{item.description}</div>
+                    )}
+                  </div>
+                  <span className="text-muted-foreground whitespace-nowrap">${item.cost}</span>
+                </div>
+              ))}
           </div>
         )}
       </div>

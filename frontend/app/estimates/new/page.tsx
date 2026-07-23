@@ -42,8 +42,10 @@ function NewEstimateWizardContent() {
   const [showDuctless, setShowDuctless] = useState(false);
 
   const [estimates, setEstimates] = useState<HcpEstimate[]>([]);
+  const [upcomingEstimates, setUpcomingEstimates] = useState<HcpEstimate[]>([]);
   const [estimateSearch, setEstimateSearch] = useState('');
   const [estimatesLoading, setEstimatesLoading] = useState(false);
+  const [updatingSchedule, setUpdatingSchedule] = useState(false);
 
   const [globals, setGlobals] = useState<Record<string, string>>({});
   const [installRules, setInstallRules] = useState<any[]>([]);
@@ -57,6 +59,7 @@ function NewEstimateWizardContent() {
     customerEmail: currentEstimate?.customerEmail || '',
     customerPhone: currentEstimate?.customerPhone || '',
     jobAddress: currentEstimate?.jobAddress || '',
+    jobNotes: currentEstimate?.jobNotes || '',
     hcpJobId: currentEstimate?.hcpJobId || '',
     hcpEstimateId: currentEstimate?.hcpEstimateId || '',
   });
@@ -87,10 +90,15 @@ function NewEstimateWizardContent() {
     const loadEstimates = async () => {
       setEstimatesLoading(true);
       try {
-        const res = await api.get('/hcp/estimates');
-        let fetched: HcpEstimate[] = res.data || [];
-        fetched = fetched.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+        const res = await api.get('/hcp-estimates');
+        const fetched: HcpEstimate[] = res.data || [];
         setEstimates(fetched);
+        // compute upcoming from DB pull, show first
+        const upcoming = fetched
+          .filter((e: any) => e.schedule?.scheduled_start && new Date(e.schedule.scheduled_start) >= new Date())
+          .sort((a: any, b: any) => new Date(a.schedule?.scheduled_start || 0).getTime() - new Date(b.schedule?.scheduled_start || 0).getTime())
+          .slice(0, 3);
+        setUpcomingEstimates(upcoming);
       } catch {}
       finally {
         setEstimatesLoading(false);
@@ -123,6 +131,7 @@ function NewEstimateWizardContent() {
               customerEmail: data.customerEmail || '',
               customerPhone: data.customerPhone || '',
               jobAddress: data.jobAddress || '',
+              jobNotes: data.jobNotes || '',
               hcpJobId: data.hcpJobId || '',
               hcpEstimateId: data.hcpEstimateId || '',
             });
@@ -206,12 +215,33 @@ function NewEstimateWizardContent() {
     try {
       const params: any = {};
       if (estimateSearch) params.search = estimateSearch;
-      const res = await api.get('/hcp/estimates', { params });
-      let fetched: HcpEstimate[] = res.data || [];
-      fetched = fetched.sort((a, b) => String(b.created_at || '').localeCompare(String(a.created_at || '')));
+      const res = await api.get('/hcp-estimates', { params });
+      const fetched: HcpEstimate[] = res.data || [];
       setEstimates(fetched);
+      // keep upcoming from previous DB load
     } catch {}
     finally { setEstimatesLoading(false); }
+  };
+
+  const handleUpdateSchedule = async () => {
+    setUpdatingSchedule(true);
+    try {
+      await api.post('/hcp-estimates/sync');
+      // reload from DB
+      const res = await api.get('/hcp-estimates');
+      const fetched: HcpEstimate[] = res.data || [];
+      setEstimates(fetched);
+      const upcoming = fetched
+        .filter((e: any) => e.schedule?.scheduled_start && new Date(e.schedule.scheduled_start) >= new Date())
+        .sort((a: any, b: any) => new Date(a.schedule?.scheduled_start || 0).getTime() - new Date(b.schedule?.scheduled_start || 0).getTime())
+        .slice(0, 3);
+      setUpcomingEstimates(upcoming);
+      toast.success('Schedule updated from HCP');
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to update schedule');
+    } finally {
+      setUpdatingSchedule(false);
+    }
   };
 
   const selectEstimate = (est: HcpEstimate) => {
@@ -220,6 +250,7 @@ function NewEstimateWizardContent() {
       customerEmail: est.customer?.email || '',
       customerPhone: est.customer?.phone || '',
       jobAddress: est.address || '',
+      jobNotes: '',
       hcpJobId: '',
       hcpEstimateId: est.id,
     };
@@ -248,6 +279,7 @@ function NewEstimateWizardContent() {
     const selling = cost * (1 + markup) * 1; // qty 1 default
     addMaterial({
       name: item.name,
+      description: item.description || null,
       cost,
       qty: 1,
       sellingPrice: selling,
@@ -399,11 +431,33 @@ function NewEstimateWizardContent() {
                   className="flex-1"
                 />
                 <Button variant="outline" onClick={handleSearchEstimates} disabled={estimatesLoading}>Search</Button>
+                <Button variant="outline" onClick={handleUpdateSchedule} disabled={updatingSchedule}>Update</Button>
               </div>
               {estimatesLoading && <p className="text-xs text-muted-foreground">Loading estimates...</p>}
+              {updatingSchedule && <p className="text-xs text-muted-foreground">Updating schedule from HCP...</p>}
               {!estimatesLoading && estimates.length === 0 && estimateSearch && (
                 <p className="text-xs text-muted-foreground mb-2">No matching estimates found. Enter details manually below.</p>
               )}
+
+              {/* Always show next 3 from DB, upcoming first */}
+              {upcomingEstimates.length > 0 && (
+                <div className="mb-3">
+                  <div className="text-sm font-medium mb-1">Next 3 estimates on the schedule</div>
+                  <div className="border rounded max-h-40 overflow-auto text-sm">
+                    {upcomingEstimates.map((est, i) => (
+                      <div
+                        key={i}
+                        onClick={() => selectEstimate(est)}
+                        className="p-2 hover:bg-muted cursor-pointer flex justify-between border-b last:border-b-0"
+                      >
+                        <span>{est.customer?.name || 'Unnamed'} — {est.schedule?.scheduled_start ? new Date(est.schedule.scheduled_start).toLocaleDateString() : ''}</span>
+                        <span className="text-muted-foreground text-xs">{est.status || est.address}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {estimates.length > 0 && (
                 <div className="border rounded max-h-40 overflow-auto text-sm mb-3">
                   {estimates.slice(0, 10).map((est, i) => (
@@ -412,7 +466,7 @@ function NewEstimateWizardContent() {
                       onClick={() => selectEstimate(est)}
                       className="p-2 hover:bg-muted cursor-pointer flex justify-between border-b last:border-b-0"
                     >
-                      <span>{est.customer?.name || 'Unnamed'} — {est.created_at ? new Date(est.created_at).toLocaleDateString() : ''}</span>
+                      <span>{est.customer?.name || 'Unnamed'} — {est.schedule?.scheduled_start ? new Date(est.schedule.scheduled_start).toLocaleDateString() : (est.created_at ? new Date(est.created_at).toLocaleDateString() : '')}</span>
                       <span className="text-muted-foreground text-xs">{est.status || est.address}</span>
                     </div>
                   ))}
@@ -430,7 +484,7 @@ function NewEstimateWizardContent() {
       {/* STEP 2: Materials + Ductless helper */}
       {step === 2 && (
         <Card>
-          <CardHeader><CardTitle>2. Materials (fuzzy search by model # + title)</CardTitle></CardHeader>
+            <CardHeader><CardTitle>2. Materials (fuzzy search by model #, title, or description)</CardTitle></CardHeader>
           <CardContent>
             <PricebookPicker
               pricebook={pricebook}
@@ -519,6 +573,15 @@ function NewEstimateWizardContent() {
               {customer.hcpJobId && <div className="text-xs">Linked HCP Job: {customer.hcpJobId}</div>}
               <div>Materials: <strong>${previewCalc.materialsSubtotal.toFixed(2)}</strong></div>
               <div>Labor (internal): <strong>${previewCalc.laborTotal.toFixed(2)}</strong></div>
+            </div>
+
+            <div className="mb-4">
+              <div className="text-xs text-muted-foreground mb-1">Note for HCP option (optional)</div>
+              <Input
+                placeholder="Add note for the option..."
+                value={customer.jobNotes || ''}
+                onChange={(e) => setCustomer({ ...customer, jobNotes: e.target.value })}
+              />
             </div>
 
             <VariantDisplay variants={previewCalc.variants} grandTotal={previewCalc.grandTotal} />

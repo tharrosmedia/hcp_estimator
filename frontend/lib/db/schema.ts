@@ -31,6 +31,22 @@ export const pricebookItems = pgTable('pricebook_items', {
   lastSyncedAt: timestamp('last_synced_at').defaultNow().notNull(),
 });
 
+export const hcpEstimates = pgTable('hcp_estimates', {
+  id: serial('id').primaryKey(),
+  hcpId: text('hcp_id').unique().notNull(),
+  estimateNumber: text('estimate_number'),
+  workStatus: text('work_status'),
+  customerName: text('customer_name'),
+  customerEmail: text('customer_email'),
+  customerPhone: text('customer_phone'),
+  address: text('address'),
+  scheduledStart: timestamp('scheduled_start'),
+  scheduledEnd: timestamp('scheduled_end'),
+  status: text('status'),
+  notes: text('notes'),
+  lastSyncedAt: timestamp('last_synced_at').defaultNow().notNull(),
+});
+
 export const installRules = pgTable('install_rules', {
   id: serial('id').primaryKey(),
   equipmentType: text('equipment_type').notNull().unique(),

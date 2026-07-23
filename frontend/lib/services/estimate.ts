@@ -183,7 +183,7 @@ export async function duplicateEstimate(id: number, userId: number) {
   return newEst;
 }
 
-export async function pushToHcp(estimateId: number, userId: number, hcpService: { createHcpEstimate: any; updateHcpEstimate?: any }) {
+export async function pushToHcp(estimateId: number, userId: number, hcpService: { createHcpEstimate: any; updateHcpEstimate?: any; createHcpEstimateOption?: any; createHcpOptionNote?: any }) {
   const estimate = await getEstimateById(estimateId, userId);
   if (!estimate) throw new Error('Estimate not found');
   if (!rawSql) throw new Error('No database connection');
@@ -192,6 +192,34 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   const { decryptApiKey } = await import('@/lib/encrypt');
   const apiKey = await decryptApiKey(userRows[0]?.hcp_api_key);
   if (!apiKey) throw new Error('User has no HCP API key configured');
+
+  const noteContent = estimate.jobNotes || 'Generated from HCP Estimator';
+
+  if (estimate.hcpEstimateId && hcpService.createHcpEstimateOption) {
+    const lineItems = (estimate.materials as any[]).map(m => ({
+      name: m.name,
+      description: m.description || '',
+      unit_price: Math.round(((m.sellingPrice || m.cost * (1 + (estimate.markup || 0))) / m.qty) * 100),
+      unit_cost: Math.round((m.cost || 0) * 100),
+      quantity: m.qty,
+      taxable: true,
+    }));
+    const optionPayload = {
+      name: 'Option 1',
+      line_items: lineItems,
+      tax: { taxable: true, tax_rate: estimate.taxRate || 0.0825, tax_name: 'Sales Tax' },
+    };
+    const result = await hcpService.createHcpEstimateOption(estimate.hcpEstimateId, optionPayload, apiKey);
+    await rawSql`UPDATE estimates SET status = 'pushed_to_hcp', updated_at = NOW() WHERE id = ${estimateId}`;
+    if (result?.id && noteContent && hcpService.createHcpOptionNote) {
+      try {
+        await hcpService.createHcpOptionNote(estimate.hcpEstimateId, result.id, { content: noteContent }, apiKey);
+      } catch (noteErr) {
+        console.warn('Failed to add option note', noteErr);
+      }
+    }
+    return result;
+  }
 
   const payload = {
     customer: {
