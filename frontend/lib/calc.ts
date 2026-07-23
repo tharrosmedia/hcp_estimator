@@ -38,7 +38,7 @@ export function calculatePreview(input: PreviewCalcInput): PreviewCalcResult {
   }, 0);
 
   const tax = materialsSubtotal * taxRate;
-  const grandTotal = materialsSubtotal + tax;
+  const grandTotal = materialsSubtotal + laborTotal + tax;
 
   const ccLabel = `Credit Card (+${(ccFee * 100).toFixed(2)}%)`;
   const finLabel = `Financing (+${(finFee * 100).toFixed(2)}%)`;

@@ -126,7 +126,8 @@ export default function EstimateDetail() {
             <div className="mt-6">
               <VariantDisplay variants={preview.variants} grandTotal={preview.grandTotal} />
               <div className="mt-2 text-sm text-muted-foreground">
-                Labor total (internal only): ${preview.laborTotal?.toFixed(2)}
+                 Labor: ${preview.laborTotal?.toFixed(2)}
+
               </div>
             </div>
           )}
@@ -134,7 +135,7 @@ export default function EstimateDetail() {
       </Card>
 
       <div className="mt-4 text-xs text-center text-muted-foreground">
-        Labor is internal only and never sent to Housecall Pro.
+        Labor is included in the total but labor lines are not sent to Housecall Pro.
       </div>
     </div>
   );

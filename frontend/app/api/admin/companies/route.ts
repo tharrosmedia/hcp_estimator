@@ -8,11 +8,14 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  // Allow any logged-in user to list companies (needed for bootstrap / seeing own company)
   if (!rawSql) return NextResponse.json([]);
-  const rows = await rawSql`SELECT id, name, created_at, updated_at FROM companies ORDER BY name`;
-  // do not return keys
-  return NextResponse.json(rows);
+  const companyId = user.companyId;
+  if (companyId) {
+    const rows = await rawSql`SELECT id, name, created_at, updated_at FROM companies WHERE id = ${companyId}`;
+    return NextResponse.json(rows);
+  }
+  // unassigned (bootstrap): allow seeing none or all? return empty to avoid listing others
+  return NextResponse.json([]);
 }
 
 export async function POST(request: NextRequest) {

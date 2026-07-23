@@ -25,10 +25,10 @@ export function calculateEstimate(input: CalcInput): CalcResult {
   const taxableAmount = materialsSubtotal;
   const tax = taxableAmount * taxRate;
 
-  const preTaxTotal = materialsSubtotal + laborTotal; // labor internal
-  const grandTotal = materialsSubtotal + tax; // customer never sees labor
+  const preTaxTotal = materialsSubtotal + laborTotal;
+  const grandTotal = materialsSubtotal + laborTotal + tax;
 
-  // Variants (customer facing - no labor)
+  // Variants (customer facing, includes labor)
   const variants: PaymentVariant[] = [
     {
       type: 'cash',
@@ -53,7 +53,7 @@ export function calculateEstimate(input: CalcInput): CalcResult {
     },
   ];
 
-  // Profit calcs (internal, labor costs subtracted)
+  // Profit calcs (labor costs subtracted from margin)
   const materialMargin = materialsSubtotal - materials.reduce((s, m) => s + m.cost * m.qty, 0);
   const grossProfit = materialMargin - laborTotal;
   const commissionRate = 0.10; // TODO: make configurable when formulas provided

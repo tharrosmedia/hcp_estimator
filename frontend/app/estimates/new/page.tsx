@@ -247,6 +247,10 @@ function NewEstimateWizardContent() {
     toast.success(`Selected ${est.customer?.name || est.id}`);
   };
 
+  const clearHcpSelection = () => {
+    setCustomer(prev => ({ ...prev, hcpEstimateId: '' }));
+  };
+
   // Compute visible list: one table, filter by mode + current estimates (which may be search results)
   const visibleEstimates = useMemo(() => {
     const now = new Date();
@@ -492,7 +496,15 @@ function NewEstimateWizardContent() {
                 <p className="text-xs text-muted-foreground mb-2">No estimates match current filter. Try different mode or search.</p>
               )}
             </div>
-            <CustomerForm values={customer} onChange={(field, val) => setCustomer({ ...customer, [field]: val })} />
+            {customer.hcpEstimateId ? (
+              <div className="p-3 bg-muted rounded mb-2 text-sm">
+                Using details from selected calendar estimate: <strong>{customer.customerName}</strong>
+                {customer.jobAddress && <span> — {customer.jobAddress}</span>}
+                <Button variant="ghost" size="sm" className="ml-2 h-6" onClick={clearHcpSelection}>Edit manually</Button>
+              </div>
+            ) : (
+              <CustomerForm values={customer} onChange={(field, val) => setCustomer({ ...customer, [field]: val })} />
+            )}
             <Button onClick={handleNext} className="w-full btn-large mt-4" disabled={!customer.customerName}>
               Continue to Materials
             </Button>
@@ -571,7 +583,7 @@ function NewEstimateWizardContent() {
               onUpdate={updateLabor}
             />
 
-            <p className="mt-3 text-xs text-muted-foreground">Labor costs are never shown to the customer or sent to Housecall Pro. Using global rate: ${laborRate}/hr (set in Admin).</p>
+            <p className="mt-3 text-xs text-muted-foreground">Labor is included in customer pricing. Using global rate: ${laborRate}/hr (set in Admin). Labor lines are not sent to HCP.</p>
 
             <div className="flex gap-2 mt-6">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
@@ -591,7 +603,7 @@ function NewEstimateWizardContent() {
               {customer.hcpEstimateId && <div className="text-xs">Linked HCP Estimate: {customer.hcpEstimateId}</div>}
               {customer.hcpJobId && <div className="text-xs">Linked HCP Job: {customer.hcpJobId}</div>}
               <div>Materials: <strong>${previewCalc.materialsSubtotal.toFixed(2)}</strong></div>
-              <div>Labor (internal): <strong>${previewCalc.laborTotal.toFixed(2)}</strong></div>
+              <div>Labor: <strong>${previewCalc.laborTotal.toFixed(2)}</strong></div>
             </div>
 
             <div className="mb-4">

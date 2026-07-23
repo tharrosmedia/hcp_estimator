@@ -79,13 +79,17 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   ALTER TABLE hcp_estimates DROP CONSTRAINT IF EXISTS hcp_estimates_hcp_id_unique;
 EXCEPTION WHEN undefined_object THEN null; END $$;
-
+DO $$ BEGIN
+  ALTER TABLE hcp_estimates ADD CONSTRAINT IF NOT EXISTS hcp_estimates_company_hcp_unique UNIQUE (company_id, hcp_id);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+ 
 DO $$ BEGIN
   ALTER TABLE install_rules DROP CONSTRAINT IF EXISTS install_rules_equipment_type_unique;
 EXCEPTION WHEN undefined_object THEN null; END $$;
 DO $$ BEGIN
   ALTER TABLE install_rules ADD CONSTRAINT IF NOT EXISTS install_rules_company_equipment_unique UNIQUE (company_id, equipment_type);
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+
 
 DO $$ BEGIN
   ALTER TABLE lineset_rules DROP CONSTRAINT IF EXISTS lineset_rules_material_category_unique;

@@ -34,7 +34,7 @@ export function VariantDisplay({ variants, grandTotal }: VariantDisplayProps) {
         ))}
       </div>
       <div className="mt-3 text-xs text-muted-foreground text-center">
-        Base (materials + tax): ${grandTotal.toFixed(2)} — labor is internal only
+        Base (materials + labor + tax): ${grandTotal.toFixed(2)}
       </div>
     </div>
   );

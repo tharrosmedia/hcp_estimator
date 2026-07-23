@@ -103,7 +103,8 @@ CREATE TABLE IF NOT EXISTS "hcp_estimates" (
 	"scheduled_end" timestamp,
 	"status" text,
 	"notes" text,
-	"last_synced_at" timestamp DEFAULT now() NOT NULL
+	"last_synced_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "hcp_estimates_company_hcp_unique" UNIQUE ("company_id", "hcp_id")
 );
   --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "settings" (
@@ -245,11 +246,16 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   ALTER TABLE hcp_estimates DROP CONSTRAINT IF EXISTS hcp_estimates_hcp_id_unique;
 EXCEPTION WHEN undefined_object THEN null; END $$;
- --> statement-breakpoint
+  --> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE hcp_estimates ADD CONSTRAINT hcp_estimates_company_hcp_unique UNIQUE (company_id, hcp_id);
+EXCEPTION WHEN duplicate_object THEN null; END $$;
+  --> statement-breakpoint
 
 DO $$ BEGIN
   ALTER TABLE install_rules DROP CONSTRAINT IF EXISTS install_rules_equipment_type_unique;
 EXCEPTION WHEN undefined_object THEN null; END $$;
+
  --> statement-breakpoint
 DO $$ BEGIN
   ALTER TABLE install_rules ADD CONSTRAINT install_rules_company_equipment_unique UNIQUE (company_id, equipment_type);

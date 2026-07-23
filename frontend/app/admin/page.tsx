@@ -17,8 +17,7 @@ export default function AdminPage() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [usersList, setUsersList] = useState<any[]>([]);
   const [newCompanyName, setNewCompanyName] = useState('');
-  const [assignUserId, setAssignUserId] = useState<number | null>(null);
-  const [assignCompanyId, setAssignCompanyId] = useState<number | null>(null);
+  const [newUserEmail, setNewUserEmail] = useState('');
 
   // Pre-defined global settings used by the estimate builder, calcs, etc.
   const [markup, setMarkup] = useState('0.40');
@@ -149,16 +148,15 @@ export default function AdminPage() {
     }
   };
 
-  const assignUserToCompany = async () => {
-    if (!assignUserId) return;
+  const addUserToCompany = async () => {
+    if (!newUserEmail) return;
     try {
-      await api.patch('/admin/users', { userId: assignUserId, companyId: assignCompanyId });
-      toast.success('User assigned to company');
-      setAssignUserId(null);
-      setAssignCompanyId(null);
+      await api.post('/admin/users', { email: newUserEmail });
+      toast.success('User added to company');
+      setNewUserEmail('');
       fetchData();
     } catch (e: any) {
-      toast.error(e.response?.data?.error || 'Failed to assign');
+      toast.error(e.response?.data?.error || 'Failed to add user');
     }
   };
 
@@ -280,31 +278,26 @@ export default function AdminPage() {
       </Card>
 
       <Card>
-        <CardHeader><CardTitle>Users &amp; Assignments</CardTitle></CardHeader>
+        <CardHeader><CardTitle>Users in Your Company</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="text-sm space-y-1">
-            {usersList.length === 0 && <div className="text-muted-foreground">No users.</div>}
+            {usersList.length === 0 && <div className="text-muted-foreground">No users yet.</div>}
             {usersList.map((u: any) => (
-              <div key={u.id} className="flex justify-between items-center border-b py-1">
-                <span>{u.email} ({u.company_name || 'unassigned'})</span>
-                <Button size="sm" variant="outline" onClick={() => { setAssignUserId(u.id); setAssignCompanyId(u.company_id || null); }}>Assign</Button>
+              <div key={u.id} className="border-b py-1">
+                {u.email} ({u.role || 'sales'})
               </div>
             ))}
           </div>
-          {assignUserId && (
-            <div className="border p-2 rounded">
-              <div className="text-xs mb-1">Assign user {assignUserId} to company:</div>
-              <div className="flex gap-2">
-                <select value={assignCompanyId || ''} onChange={e => setAssignCompanyId(e.target.value ? parseInt(e.target.value) : null)} className="border p-1 text-sm">
-                  <option value="">Unassigned</option>
-                  {companies.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                </select>
-                <Button size="sm" onClick={assignUserToCompany}>Save Assign</Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAssignUserId(null); setAssignCompanyId(null); }}>Cancel</Button>
-              </div>
-            </div>
-          )}
-          <div className="text-xs text-muted-foreground">Admins assign users to companies here. New users from a domain get auto-created company on first login.</div>
+          <div className="flex gap-2">
+            <Input
+              placeholder="email@example.com"
+              value={newUserEmail}
+              onChange={(e) => setNewUserEmail(e.target.value)}
+              className="flex-1"
+            />
+            <Button onClick={addUserToCompany}>Add User</Button>
+          </div>
+          <div className="text-xs text-muted-foreground">Add users by email (must be unique). They can log in and will belong to this company. New logins from unknown emails auto-create their own company based on domain.</div>
         </CardContent>
       </Card>
 
