@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
       userId: user.id,
       email: user.email,
       role: user.role,
+      companyId: user.company_id || user.companyId,
     });
     const refreshToken = signRefreshToken(user.id);
 

@@ -8,6 +8,7 @@ export interface AuthenticatedUser {
   userId: number;
   email: string;
   role: UserRole;
+  companyId?: number | null;
 }
 
 export async function getAuthenticatedUser(request: NextRequest): Promise<AuthenticatedUser | null> {
@@ -28,6 +29,7 @@ export async function getAuthenticatedUser(request: NextRequest): Promise<Authen
       userId: payload.userId,
       email: payload.email,
       role: payload.role,
+      companyId: payload.companyId,
     };
   } catch (error) {
     return null;
@@ -61,6 +63,7 @@ export async function handleRefreshToken(body: { refreshToken?: string }) {
     userId: user.id,
     email: user.email,
     role: (user.role as string).toLowerCase() as UserRole,
+    companyId: user.companyId,
   });
 
   return { accessToken, status: 200 };

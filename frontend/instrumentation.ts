@@ -59,33 +59,34 @@ export async function register() {
     try {
       const schedule = process.env.CRON_SCHEDULE || '0 6 * * *';
       cron.schedule(schedule, async () => {
-        console.log('[CRON] Running pricebook refresh...');
+        console.log('[CRON] Running pricebook + estimates refresh for companies...');
         try {
-          let key: string | null = null;
           const connectionString = process.env.DATABASE_URL || '';
+          let companyRows: any[] = [];
           if (connectionString) {
             const { neon } = await import('@neondatabase/serverless');
             const sql = neon(connectionString);
-            const rows = await sql.query('SELECT hcp_api_key FROM users WHERE hcp_api_key IS NOT NULL LIMIT 1');
-            if (rows[0]?.hcp_api_key) {
-              const { decryptApiKey } = await import('./lib/encrypt');
-              key = await decryptApiKey(rows[0].hcp_api_key);
+            companyRows = await sql.query('SELECT id, hcp_api_key FROM companies WHERE hcp_api_key IS NOT NULL');
+            const { decryptApiKey } = await import('./lib/encrypt');
+            for (const c of companyRows) {
+              const key = await decryptApiKey(c.hcp_api_key);
+              if (key) {
+                const pb = await syncPricebook(key, c.id);
+                console.log('[CRON] Pricebook synced for company', c.id, ':', pb);
+                const est = await syncHcpEstimates(key, c.id);
+                console.log('[CRON] HCP estimates synced for company', c.id, ':', est);
+              }
             }
           }
-          if (!key) {
-            key = process.env.HCP_SYNC_KEY || null;
+          const fallbackKey = process.env.HCP_SYNC_KEY || null;
+          if (fallbackKey && companyRows.length === 0) {
+            const pb = await syncPricebook(fallbackKey, undefined);
+            console.log('[CRON] Pricebook synced (fallback):', pb);
+            const est = await syncHcpEstimates(fallbackKey, undefined);
+            console.log('[CRON] HCP estimates synced (fallback):', est);
           }
-           if (key) {
-             const pb = await syncPricebook(key);
-             console.log('[CRON] Pricebook synced:', pb);
-             const est = await syncHcpEstimates(key);
-             console.log('[CRON] HCP estimates synced:', est);
-           } else {
-             console.log('[CRON] No HCP key configured for refresh');
-           }
-
         } catch (e) {
-          console.error('[CRON] Pricebook refresh failed', e);
+          console.error('[CRON] Pricebook/estimates refresh failed', e);
         }
       });
       console.log('[CRON] Pricebook cron scheduled');

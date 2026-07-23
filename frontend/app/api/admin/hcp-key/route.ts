@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ hasKey: false });
   }
 
-  const rows = await rawSql`SELECT hcp_api_key FROM users WHERE id = ${user.userId} LIMIT 1`;
+  const rows = await rawSql`SELECT c.hcp_api_key FROM companies c JOIN users u ON u.company_id = c.id WHERE u.id = ${user.userId} LIMIT 1`;
   const hasKey = !!rows[0]?.hcp_api_key;
   return NextResponse.json({ hasKey });
 }
@@ -36,9 +36,10 @@ export async function POST(request: NextRequest) {
 
   const encrypted = await encryptApiKey(hcpApiKey);
   await rawSql`
-    UPDATE users 
-    SET hcp_api_key = ${encrypted} 
-    WHERE id = ${user.userId}
+    UPDATE companies c
+    SET hcp_api_key = ${encrypted}
+    FROM users u
+    WHERE u.company_id = c.id AND u.id = ${user.userId}
   `;
   return NextResponse.json({ success: true });
 }

@@ -8,6 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const items = await pricebookService.getAllPricebookItems();
+  const companyId = user.companyId;
+  const items = await pricebookService.getAllPricebookItems(companyId || undefined);
   return NextResponse.json(items);
 }

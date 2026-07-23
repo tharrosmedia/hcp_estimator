@@ -6,6 +6,7 @@ function mapEstimate(row: any): any {
   if (!row) return null;
   return {
     id: row.id,
+    companyId: row.company_id,
     userId: row.user_id,
     customerName: row.customer_name,
     customerEmail: row.customer_email,
@@ -56,9 +57,13 @@ const DEFAULT_SETTINGS = {
   tax_rate: '0.06',
 };
 
-export async function getUserEstimates(userId: number) {
+export async function getCompanyEstimates(userId: number) {
   if (!rawSql) return [];
-  const rows = await rawSql`SELECT * FROM estimates WHERE user_id = ${userId} ORDER BY created_at DESC`;
+  // lookup company
+  const userRows = await rawSql`SELECT company_id FROM users WHERE id = ${userId} LIMIT 1`;
+  const companyId = userRows[0]?.company_id;
+  if (!companyId) return [];
+  const rows = await rawSql`SELECT * FROM estimates WHERE company_id = ${companyId} ORDER BY created_at DESC`;
   return rows.map(mapEstimate);
 }
 
@@ -67,7 +72,11 @@ export async function getEstimateById(id: number, userId?: number) {
   const estRows = await rawSql`SELECT * FROM estimates WHERE id = ${id} LIMIT 1`;
   const est = mapEstimate(estRows[0]);
   if (!est) return null;
-  if (userId && est.userId !== userId) return null;
+  if (userId) {
+    const userRows = await rawSql`SELECT company_id FROM users WHERE id = ${userId} LIMIT 1`;
+    const companyId = userRows[0]?.company_id;
+    if (companyId && est.companyId !== companyId) return null;
+  }
   const matRows = await rawSql`SELECT * FROM estimate_materials WHERE estimate_id = ${id}`;
   const laborRows = await rawSql`SELECT * FROM estimate_labor WHERE estimate_id = ${id}`;
   est.materials = matRows.map(mapMaterial);
@@ -79,9 +88,10 @@ export async function createEstimate(data: any, userId: number) {
   const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId, hcpEstimateId } = data;
   if (!rawSql) throw new Error('No database connection');
 
-  const userRows = await rawSql`SELECT markup_override FROM users WHERE id = ${userId} LIMIT 1`;
-  const markupRow = await rawSql`SELECT value FROM settings WHERE key = 'markup' LIMIT 1`;
-  const taxRow = await rawSql`SELECT value FROM settings WHERE key = 'tax_rate' LIMIT 1`;
+  const userRows = await rawSql`SELECT markup_override, company_id FROM users WHERE id = ${userId} LIMIT 1`;
+  const companyId = userRows[0]?.company_id;
+  const markupRow = await rawSql`SELECT value FROM settings WHERE company_id = ${companyId} AND key = 'markup' LIMIT 1`;
+  const taxRow = await rawSql`SELECT value FROM settings WHERE company_id = ${companyId} AND key = 'tax_rate' LIMIT 1`;
   const userMarkup = userRows[0]?.markup_override;
   const markupVal = userMarkup != null ? userMarkup : (markupRow[0]?.value ?? DEFAULT_SETTINGS.markup);
   const effectiveMarkup = markup ?? parseFloat(String(markupVal));
@@ -89,8 +99,8 @@ export async function createEstimate(data: any, userId: number) {
   const effectiveTax = taxRate ?? parseFloat(String(taxVal));
 
   const estRows = await rawSql`
-    INSERT INTO estimates (user_id, customer_name, customer_email, customer_phone, job_address, job_notes, markup, tax_rate, status, approval_flag, hcp_job_id, hcp_estimate_id)
-    VALUES (${userId}, ${customerName}, ${customerEmail || null}, ${customerPhone || null}, ${jobAddress || null}, ${jobNotes || null}, ${effectiveMarkup}, ${effectiveTax}, 'draft', false, ${hcpJobId || null}, ${hcpEstimateId || null})
+    INSERT INTO estimates (company_id, user_id, customer_name, customer_email, customer_phone, job_address, job_notes, markup, tax_rate, status, approval_flag, hcp_job_id, hcp_estimate_id)
+    VALUES (${companyId}, ${userId}, ${customerName}, ${customerEmail || null}, ${customerPhone || null}, ${jobAddress || null}, ${jobNotes || null}, ${effectiveMarkup}, ${effectiveTax}, 'draft', false, ${hcpJobId || null}, ${hcpEstimateId || null})
     RETURNING *
   `;
   const estimate = mapEstimate(estRows[0]);
@@ -188,10 +198,12 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   if (!estimate) throw new Error('Estimate not found');
   if (!rawSql) throw new Error('No database connection');
 
-  const userRows = await rawSql.query('SELECT hcp_api_key FROM users WHERE id = $1 LIMIT 1', [userId]);
+  const userRows = await rawSql.query('SELECT company_id FROM users WHERE id = $1 LIMIT 1', [userId]);
+  const companyId = userRows[0]?.company_id;
+  const companyRows = companyId ? await rawSql.query('SELECT hcp_api_key FROM companies WHERE id = $1 LIMIT 1', [companyId]) : [];
   const { decryptApiKey } = await import('@/lib/encrypt');
-  const apiKey = await decryptApiKey(userRows[0]?.hcp_api_key);
-  if (!apiKey) throw new Error('User has no HCP API key configured');
+  const apiKey = await decryptApiKey(companyRows[0]?.hcp_api_key);
+  if (!apiKey) throw new Error('Company has no HCP API key configured');
 
   const noteContent = estimate.jobNotes || 'Generated from HCP Estimator';
 
@@ -250,15 +262,21 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   return result;
 }
 
-async function getSetting(key: string): Promise<string | null> {
+async function getSetting(key: string, companyId?: number): Promise<string | null> {
   if (!rawSql) return null;
-  const rows = await rawSql`SELECT value FROM settings WHERE key = ${key} LIMIT 1`;
+  let rows;
+  if (companyId) {
+    rows = await rawSql`SELECT value FROM settings WHERE company_id = ${companyId} AND key = ${key} LIMIT 1`;
+  } else {
+    rows = await rawSql`SELECT value FROM settings WHERE key = ${key} LIMIT 1`;
+  }
   return rows[0]?.value || null;
 }
 
 export async function computeEstimateResult(estimate: any): Promise<CalcResult> {
-  const financingFee = parseFloat(await getSetting('financing_fee') || '0.0499');
-  const creditCardFee = parseFloat(await getSetting('credit_card_fee') || '0.03');
+  const companyId = estimate.companyId;
+  const financingFee = parseFloat(await getSetting('financing_fee', companyId) || '0.0499');
+  const creditCardFee = parseFloat(await getSetting('credit_card_fee', companyId) || '0.03');
 
   return calculateEstimate({
     materials: estimate.materials,

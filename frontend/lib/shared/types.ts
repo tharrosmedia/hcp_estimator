@@ -8,8 +8,15 @@ export interface User {
   email: string;
   name: string | null;
   role: UserRole;
-  hcpApiKey: string | null; // encrypted at rest (see lib/encrypt.ts)
+  companyId: number | null;
   markupOverride: number | null; // e.g. 0.4 for 40%
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Company {
+  id: number;
+  name: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -73,6 +80,7 @@ export type EstimateStatus = 'draft' | 'pending_approval' | 'approved' | 'pushed
 
 export interface Estimate {
   id: number;
+  companyId?: number | null;
   userId: number;
   customerName: string;
   customerEmail?: string | null;
@@ -144,6 +152,7 @@ export interface AuthTokenPayload {
   userId: number;
   email: string;
   role: UserRole;
+  companyId?: number | null;
   iat?: number;
   exp?: number;
 }

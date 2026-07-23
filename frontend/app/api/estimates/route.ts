@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const estimates = await estimateService.getUserEstimates(user.userId);
+  const estimates = await estimateService.getCompanyEstimates(user.userId);
   return NextResponse.json(estimates);
 }
 

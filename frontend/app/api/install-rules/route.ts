@@ -8,6 +8,9 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   if (!rawSql) return NextResponse.json([]);
-  const rows = await rawSql`SELECT * FROM install_rules`;
+  const companyId = user.companyId;
+  const rows = companyId 
+    ? await rawSql`SELECT * FROM install_rules WHERE company_id = ${companyId}`
+    : await rawSql`SELECT * FROM install_rules`;
   return NextResponse.json(rows);
 }

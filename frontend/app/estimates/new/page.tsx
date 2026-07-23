@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, Suspense } from 'react';
+import { useEffect, useState, Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -42,10 +42,10 @@ function NewEstimateWizardContent() {
   const [showDuctless, setShowDuctless] = useState(false);
 
   const [estimates, setEstimates] = useState<HcpEstimate[]>([]);
-  const [upcomingEstimates, setUpcomingEstimates] = useState<HcpEstimate[]>([]);
   const [estimateSearch, setEstimateSearch] = useState('');
   const [estimatesLoading, setEstimatesLoading] = useState(false);
   const [updatingSchedule, setUpdatingSchedule] = useState(false);
+  const [filterMode, setFilterMode] = useState<'today-upcoming' | 'all' | 'past'>('today-upcoming');
 
   const [globals, setGlobals] = useState<Record<string, string>>({});
   const [installRules, setInstallRules] = useState<any[]>([]);
@@ -93,12 +93,6 @@ function NewEstimateWizardContent() {
         const res = await api.get('/hcp-estimates');
         const fetched: HcpEstimate[] = res.data || [];
         setEstimates(fetched);
-        // compute upcoming from DB pull, show first
-        const upcoming = fetched
-          .filter((e: any) => e.schedule?.scheduled_start && new Date(e.schedule.scheduled_start) >= new Date())
-          .sort((a: any, b: any) => new Date(a.schedule?.scheduled_start || 0).getTime() - new Date(b.schedule?.scheduled_start || 0).getTime())
-          .slice(0, 3);
-        setUpcomingEstimates(upcoming);
       } catch {}
       finally {
         setEstimatesLoading(false);
@@ -218,7 +212,6 @@ function NewEstimateWizardContent() {
       const res = await api.get('/hcp-estimates', { params });
       const fetched: HcpEstimate[] = res.data || [];
       setEstimates(fetched);
-      // keep upcoming from previous DB load
     } catch {}
     finally { setEstimatesLoading(false); }
   };
@@ -231,11 +224,6 @@ function NewEstimateWizardContent() {
       const res = await api.get('/hcp-estimates');
       const fetched: HcpEstimate[] = res.data || [];
       setEstimates(fetched);
-      const upcoming = fetched
-        .filter((e: any) => e.schedule?.scheduled_start && new Date(e.schedule.scheduled_start) >= new Date())
-        .sort((a: any, b: any) => new Date(a.schedule?.scheduled_start || 0).getTime() - new Date(b.schedule?.scheduled_start || 0).getTime())
-        .slice(0, 3);
-      setUpcomingEstimates(upcoming);
       toast.success('Schedule updated from HCP');
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Failed to update schedule');
@@ -258,6 +246,26 @@ function NewEstimateWizardContent() {
     setEstimateSearch('');
     toast.success(`Selected ${est.customer?.name || est.id}`);
   };
+
+  // Compute visible list: one table, filter by mode + current estimates (which may be search results)
+  const visibleEstimates = useMemo(() => {
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10); // calendar date YYYY-MM-DD
+    return estimates.filter((est: any) => {
+      const sched = est.schedule?.scheduled_start;
+      if (!sched) return false; // no unscheduled
+      const d = new Date(sched);
+      const dStr = d.toISOString().slice(0, 10);
+      const isToday = dStr === todayStr;
+      const isUpcoming = d >= now;
+      const isPast = d < now && !isToday;
+      if (filterMode === 'today-upcoming') {
+        return isToday || isUpcoming;
+      }
+      if (filterMode === 'past') return isPast;
+      return true; // all
+    });
+  }, [estimates, filterMode]);
 
   const handleNext = () => {
     if (step === 1) {
@@ -439,38 +447,45 @@ function NewEstimateWizardContent() {
                 <p className="text-xs text-muted-foreground mb-2">No matching estimates found. Enter details manually below.</p>
               )}
 
-              {/* Always show next 3 from DB, upcoming first */}
-              {upcomingEstimates.length > 0 && (
-                <div className="mb-3">
-                  <div className="text-sm font-medium mb-1">Next 3 estimates on the schedule</div>
-                  <div className="border rounded max-h-40 overflow-auto text-sm">
-                    {upcomingEstimates.map((est, i) => (
-                      <div
-                        key={i}
-                        onClick={() => selectEstimate(est)}
-                        className="p-2 hover:bg-muted cursor-pointer flex justify-between border-b last:border-b-0"
-                      >
-                        <span>{est.customer?.name || 'Unnamed'} — {est.schedule?.scheduled_start ? new Date(est.schedule.scheduled_start).toLocaleDateString() : ''}</span>
-                        <span className="text-muted-foreground text-xs">{est.status || est.address}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {/* Filter modes */}
+              <div className="flex gap-2 mb-2 text-sm">
+                <button
+                  onClick={() => setFilterMode('today-upcoming')}
+                  className={`px-2 py-1 rounded ${filterMode === 'today-upcoming' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+                >
+                  Today & Upcoming
+                </button>
+                <button
+                  onClick={() => setFilterMode('all')}
+                  className={`px-2 py-1 rounded ${filterMode === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setFilterMode('past')}
+                  className={`px-2 py-1 rounded ${filterMode === 'past' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}
+                >
+                  Past
+                </button>
+              </div>
 
-              {estimates.length > 0 && (
-                <div className="border rounded max-h-40 overflow-auto text-sm mb-3">
-                  {estimates.slice(0, 10).map((est, i) => (
+              {/* One table/list - adjusted by search + filterMode */}
+              {visibleEstimates.length > 0 && (
+                <div className="border rounded max-h-48 overflow-auto text-sm mb-3">
+                  {visibleEstimates.map((est, i) => (
                     <div
                       key={i}
                       onClick={() => selectEstimate(est)}
                       className="p-2 hover:bg-muted cursor-pointer flex justify-between border-b last:border-b-0"
                     >
-                      <span>{est.customer?.name || 'Unnamed'} — {est.schedule?.scheduled_start ? new Date(est.schedule.scheduled_start).toLocaleDateString() : (est.created_at ? new Date(est.created_at).toLocaleDateString() : '')}</span>
+                      <span>{est.customer?.name || 'Unnamed'} — {est.schedule?.scheduled_start ? new Date(est.schedule.scheduled_start).toLocaleDateString() : ''}</span>
                       <span className="text-muted-foreground text-xs">{est.status || est.address}</span>
                     </div>
                   ))}
                 </div>
+              )}
+              {visibleEstimates.length === 0 && estimates.length > 0 && (
+                <p className="text-xs text-muted-foreground mb-2">No estimates match current filter. Try different mode or search.</p>
               )}
             </div>
             <CustomerForm values={customer} onChange={(field, val) => setCustomer({ ...customer, [field]: val })} />

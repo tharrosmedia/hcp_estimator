@@ -49,9 +49,23 @@ export async function findOrCreateUser(email: string, name?: string): Promise<an
   let user = existing[0];
 
   if (!user) {
+    // Derive company from email domain for first user of domain
+    const domain = lower.split('@')[1] || 'default';
+    const companyName = domain.split('.')[0] || domain; // e.g. 'tharrosmedia' from tharrosmedia.com
+
+    // Find or create company
+    let companyRows = await rawSql`SELECT * FROM companies WHERE name ILIKE ${companyName} LIMIT 1`;
+    let company = companyRows[0];
+    if (!company) {
+      const compInserted = await rawSql`
+        INSERT INTO companies (name) VALUES (${companyName}) RETURNING *
+      `;
+      company = compInserted[0];
+    }
+
     const inserted = await rawSql`
-      INSERT INTO users (email, name, role) 
-      VALUES (${lower}, ${name || email.split('@')[0]}, 'sales')
+      INSERT INTO users (email, name, role, company_id) 
+      VALUES (${lower}, ${name || email.split('@')[0]}, 'sales', ${company.id})
       RETURNING *
     `;
     user = inserted[0];

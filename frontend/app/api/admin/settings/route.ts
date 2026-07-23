@@ -10,7 +10,10 @@ export async function GET(request: NextRequest) {
   // allow any logged-in to read and write settings for wizard globals (labor_rate, fees etc)
 
   if (!rawSql) return NextResponse.json([]);
-  const all = await rawSql`SELECT * FROM settings ORDER BY key`;
+  const companyId = user.companyId;
+  const all = companyId 
+    ? await rawSql`SELECT * FROM settings WHERE company_id = ${companyId} ORDER BY key`
+    : await rawSql`SELECT * FROM settings ORDER BY key`;
   return NextResponse.json(all);
 }
 
@@ -27,17 +30,19 @@ export async function POST(request: NextRequest) {
 
   if (!rawSql) return NextResponse.json({ error: 'No database' }, { status: 500 });
 
-  const existing = await rawSql`SELECT * FROM settings WHERE key = ${key} LIMIT 1`;
+  const companyId = user.companyId;
+  if (!companyId) return NextResponse.json({ error: 'No company' }, { status: 400 });
+  const existing = await rawSql`SELECT * FROM settings WHERE company_id = ${companyId} AND key = ${key} LIMIT 1`;
   if (existing.length > 0) {
     await rawSql`
       UPDATE settings 
       SET value = ${value}, updated_at = NOW() 
-      WHERE key = ${key}
+      WHERE company_id = ${companyId} AND key = ${key}
     `;
   } else {
     await rawSql`
-      INSERT INTO settings (key, value) 
-      VALUES (${key}, ${value})
+      INSERT INTO settings (company_id, key, value) 
+      VALUES (${companyId}, ${key}, ${value})
     `;
   }
   return NextResponse.json({ success: true });

@@ -1,11 +1,19 @@
 import { pgTable, serial, text, integer, real, boolean, timestamp, jsonb } from 'drizzle-orm/pg-core';
 
+export const companies = pgTable('companies', {
+  id: serial('id').primaryKey(),
+  name: text('name').notNull(),
+  hcpApiKey: text('hcp_api_key'), // encrypted via lib/encrypt.ts (aes-256-gcm) - per company
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
   email: text('email').notNull().unique(),
   name: text('name'),
   role: text('role').notNull().default('sales'), // sales | manager | admin
-  hcpApiKey: text('hcp_api_key'), // encrypted via lib/encrypt.ts (aes-256-gcm)
+  companyId: integer('company_id').references(() => companies.id),
   markupOverride: real('markup_override'), // e.g. 0.40
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -13,14 +21,16 @@ export const users = pgTable('users', {
 
 export const settings = pgTable('settings', {
   id: serial('id').primaryKey(),
-  key: text('key').notNull().unique(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
+  key: text('key').notNull(),
   value: text('value').notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
 export const pricebookItems = pgTable('pricebook_items', {
   id: serial('id').primaryKey(),
-  hcpId: text('hcp_id').unique(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
+  hcpId: text('hcp_id'),
   name: text('name').notNull(),
   description: text('description'),
   cost: real('cost').notNull(),
@@ -33,7 +43,8 @@ export const pricebookItems = pgTable('pricebook_items', {
 
 export const hcpEstimates = pgTable('hcp_estimates', {
   id: serial('id').primaryKey(),
-  hcpId: text('hcp_id').unique().notNull(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
+  hcpId: text('hcp_id').notNull(),
   estimateNumber: text('estimate_number'),
   workStatus: text('work_status'),
   customerName: text('customer_name'),
@@ -49,7 +60,8 @@ export const hcpEstimates = pgTable('hcp_estimates', {
 
 export const installRules = pgTable('install_rules', {
   id: serial('id').primaryKey(),
-  equipmentType: text('equipment_type').notNull().unique(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
+  equipmentType: text('equipment_type').notNull(),
   baseHours: real('base_hours').notNull(),
   crewMultiplier: real('crew_multiplier').notNull().default(1),
   notes: text('notes'),
@@ -57,13 +69,15 @@ export const installRules = pgTable('install_rules', {
 
 export const linesetRules = pgTable('lineset_rules', {
   id: serial('id').primaryKey(),
-  materialCategory: text('material_category').notNull().unique(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
+  materialCategory: text('material_category').notNull(),
   recommendedFt: real('recommended_ft').notNull(),
   costPerFt: real('cost_per_ft').notNull(),
 });
 
 export const estimates = pgTable('estimates', {
   id: serial('id').primaryKey(),
+  companyId: integer('company_id').notNull().references(() => companies.id),
   userId: integer('user_id').notNull().references(() => users.id),
   customerName: text('customer_name').notNull(),
   customerEmail: text('customer_email'),

@@ -13,11 +13,12 @@ export async function GET(request: NextRequest) {
   const upcoming = searchParams.get('upcoming') === 'true';
 
   try {
+    const companyId = user.companyId;
     let items;
     if (upcoming) {
-      items = await getUpcomingHcpEstimates(3);
-    } else {
-      items = await getAllHcpEstimates(search);
+      items = await getUpcomingHcpEstimates(3, companyId || undefined);
+      items = await getAllHcpEstimates(search, companyId || undefined);
+
     }
     return NextResponse.json(items);
   } catch (e: any) {

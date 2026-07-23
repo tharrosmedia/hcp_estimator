@@ -423,8 +423,8 @@ function getMockPricebook(): PricebookItem[] {
   ];
 }
 
-export async function syncHcpEstimates(apiKey: string): Promise<{ synced: number }> {
-  if (!rawSql) return { synced: 0 };
+export async function syncHcpEstimates(apiKey: string, companyId?: number): Promise<{ synced: number }> {
+  if (!rawSql || !companyId) return { synced: 0 };
   const ests = await fetchHcpEstimates(apiKey);
 
   let synced = 0;
@@ -437,8 +437,9 @@ export async function syncHcpEstimates(apiKey: string): Promise<{ synced: number
     const end = sched.scheduled_end ? new Date(sched.scheduled_end) : null;
 
     await rawSql.query(
-      'INSERT INTO hcp_estimates (hcp_id, estimate_number, work_status, customer_name, customer_email, customer_phone, address, scheduled_start, scheduled_end, status, notes, last_synced_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) ON CONFLICT (hcp_id) DO UPDATE SET estimate_number = EXCLUDED.estimate_number, work_status = EXCLUDED.work_status, customer_name = EXCLUDED.customer_name, customer_email = EXCLUDED.customer_email, customer_phone = EXCLUDED.customer_phone, address = EXCLUDED.address, scheduled_start = EXCLUDED.scheduled_start, scheduled_end = EXCLUDED.scheduled_end, status = EXCLUDED.status, notes = EXCLUDED.notes, last_synced_at = NOW()',
+      'INSERT INTO hcp_estimates (company_id, hcp_id, estimate_number, work_status, customer_name, customer_email, customer_phone, address, scheduled_start, scheduled_end, status, notes, last_synced_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) ON CONFLICT (company_id, hcp_id) DO UPDATE SET estimate_number = EXCLUDED.estimate_number, work_status = EXCLUDED.work_status, customer_name = EXCLUDED.customer_name, customer_email = EXCLUDED.customer_email, customer_phone = EXCLUDED.customer_phone, address = EXCLUDED.address, scheduled_start = EXCLUDED.scheduled_start, scheduled_end = EXCLUDED.scheduled_end, status = EXCLUDED.status, notes = EXCLUDED.notes, last_synced_at = NOW()',
       [
+        companyId,
         est.id,
         est.estimate_number || null,
         est.work_status || null,
@@ -458,22 +459,33 @@ export async function syncHcpEstimates(apiKey: string): Promise<{ synced: number
   return { synced };
 }
 
-export async function getUpcomingHcpEstimates(limit = 3): Promise<HcpEstimate[]> {
+export async function getUpcomingHcpEstimates(limit = 3, companyId?: number): Promise<HcpEstimate[]> {
   if (!rawSql) return [];
   const now = new Date();
-  const rows = await rawSql.query(
-    'SELECT * FROM hcp_estimates WHERE scheduled_start > $1 ORDER BY scheduled_start ASC LIMIT $2',
-    [now, limit]
-  );
+  let query = 'SELECT * FROM hcp_estimates WHERE scheduled_start > $1 ORDER BY scheduled_start ASC LIMIT $2';
+  let params: any[] = [now, limit];
+  if (companyId) {
+    query = 'SELECT * FROM hcp_estimates WHERE company_id = $1 AND scheduled_start > $2 ORDER BY scheduled_start ASC LIMIT $3';
+    params = [companyId, now, limit];
+  }
+  const rows = await rawSql.query(query, params);
   return rows.map(mapHcpEstimate);
 }
 
-export async function getAllHcpEstimates(search?: string): Promise<HcpEstimate[]> {
+export async function getAllHcpEstimates(search?: string, companyId?: number): Promise<HcpEstimate[]> {
   if (!rawSql) return [];
-  let query = 'SELECT * FROM hcp_estimates ORDER BY scheduled_start ASC NULLS LAST, created_at DESC';
+  let query = 'SELECT * FROM hcp_estimates ORDER BY scheduled_start ASC NULLS LAST, last_synced_at DESC';
   let params: any[] = [];
-  if (search) {
-    query = 'SELECT * FROM hcp_estimates WHERE customer_name ILIKE $1 OR address ILIKE $1 ORDER BY scheduled_start ASC NULLS LAST, created_at DESC';
+  if (companyId) {
+    if (search) {
+      query = 'SELECT * FROM hcp_estimates WHERE company_id = $1 AND (customer_name ILIKE $2 OR address ILIKE $2) ORDER BY scheduled_start ASC NULLS LAST, last_synced_at DESC';
+      params = [companyId, `%${search}%`];
+    } else {
+      query = 'SELECT * FROM hcp_estimates WHERE company_id = $1 ORDER BY scheduled_start ASC NULLS LAST, last_synced_at DESC';
+      params = [companyId];
+    }
+  } else if (search) {
+    query = 'SELECT * FROM hcp_estimates WHERE customer_name ILIKE $1 OR address ILIKE $1 ORDER BY scheduled_start ASC NULLS LAST, last_synced_at DESC';
     params = [`%${search}%`];
   }
   const rows = await rawSql.query(query, params);

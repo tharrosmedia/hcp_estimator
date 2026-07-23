@@ -14,6 +14,11 @@ export default function AdminPage() {
   const [hcpKey, setHcpKey] = useState('');
   const [hasHcpKey, setHasHcpKey] = useState(false);
   const [pricebookCount, setPricebookCount] = useState<number | null>(null);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [usersList, setUsersList] = useState<any[]>([]);
+  const [newCompanyName, setNewCompanyName] = useState('');
+  const [assignUserId, setAssignUserId] = useState<number | null>(null);
+  const [assignCompanyId, setAssignCompanyId] = useState<number | null>(null);
 
   // Pre-defined global settings used by the estimate builder, calcs, etc.
   const [markup, setMarkup] = useState('0.40');
@@ -48,8 +53,21 @@ export default function AdminPage() {
         const pb = await api.get('/pricebook');
         setPricebookCount((pb.data || []).length);
       } catch {}
-    } catch (e) {}
+
+      // load companies and users for management (admin only)
+      try {
+        const [comps, usrs] = await Promise.all([
+          api.get('/admin/companies'),
+          api.get('/admin/users'),
+        ]);
+        setCompanies(comps.data || []);
+        setUsersList(usrs.data || []);
+      } catch {}
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed');
+    }
   };
+
 
   useEffect(() => {
     fetchData();
@@ -82,7 +100,7 @@ export default function AdminPage() {
     if (!hcpKey) return;
     try {
       await api.post('/admin/hcp-key', { hcpApiKey: hcpKey });
-      toast.success('HCP key saved for your account');
+      toast.success('HCP key saved for your company');
       setHasHcpKey(true);
       setHcpKey(''); // clear input after save (it's sensitive)
     } catch (e: any) {
@@ -101,6 +119,31 @@ export default function AdminPage() {
       } catch {}
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Failed');
+    }
+  };
+
+  const createCompany = async () => {
+    if (!newCompanyName) return;
+    try {
+      await api.post('/admin/companies', { name: newCompanyName });
+      toast.success('Company created');
+      setNewCompanyName('');
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to create company');
+    }
+  };
+
+  const assignUserToCompany = async () => {
+    if (!assignUserId) return;
+    try {
+      await api.patch('/admin/users', { userId: assignUserId, companyId: assignCompanyId });
+      toast.success('User assigned to company');
+      setAssignUserId(null);
+      setAssignCompanyId(null);
+      fetchData();
+    } catch (e: any) {
+      toast.error(e.response?.data?.error || 'Failed to assign');
     }
   };
 
@@ -187,9 +230,9 @@ export default function AdminPage() {
           />
           <Button onClick={saveHcpKey}>Save Key</Button>
           {hasHcpKey && (
-            <div className="text-xs text-green-600">A key is currently saved for your account.</div>
+            <div className="text-xs text-green-600">A key is currently saved for your company.</div>
           )}
-          <div className="text-xs">Used for pushing estimates and pricebook sync.</div>
+          <div className="text-xs">Per-company key used for pushing estimates and pricebook sync.</div>
         </CardContent>
       </Card>
 
@@ -201,6 +244,52 @@ export default function AdminPage() {
             <p className="text-xs mt-2 text-muted-foreground">Currently {pricebookCount} items in database.</p>
           )}
           <p className="text-xs mt-1 text-muted-foreground">Scheduled daily via cron.</p>
+        </CardContent>
+      </Card>
+
+      {/* Company & User Management */}
+      <Card>
+        <CardHeader><CardTitle>Companies</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input placeholder="Company name (e.g. tharrosmedia)" value={newCompanyName} onChange={e => setNewCompanyName(e.target.value)} />
+            <Button onClick={createCompany}>Create</Button>
+          </div>
+          <div className="text-sm">
+            {companies.length === 0 && <div className="text-muted-foreground">No companies yet.</div>}
+            {companies.map((c: any) => (
+              <div key={c.id} className="border-b py-1">{c.name} (id: {c.id})</div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Users &amp; Assignments</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <div className="text-sm space-y-1">
+            {usersList.length === 0 && <div className="text-muted-foreground">No users.</div>}
+            {usersList.map((u: any) => (
+              <div key={u.id} className="flex justify-between items-center border-b py-1">
+                <span>{u.email} ({u.company_name || 'unassigned'})</span>
+                <Button size="sm" variant="outline" onClick={() => { setAssignUserId(u.id); setAssignCompanyId(u.company_id || null); }}>Assign</Button>
+              </div>
+            ))}
+          </div>
+          {assignUserId && (
+            <div className="border p-2 rounded">
+              <div className="text-xs mb-1">Assign user {assignUserId} to company:</div>
+              <div className="flex gap-2">
+                <select value={assignCompanyId || ''} onChange={e => setAssignCompanyId(e.target.value ? parseInt(e.target.value) : null)} className="border p-1 text-sm">
+                  <option value="">Unassigned</option>
+                  {companies.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <Button size="sm" onClick={assignUserToCompany}>Save Assign</Button>
+                <Button size="sm" variant="ghost" onClick={() => { setAssignUserId(null); setAssignCompanyId(null); }}>Cancel</Button>
+              </div>
+            </div>
+          )}
+          <div className="text-xs text-muted-foreground">Admins assign users to companies here. New users from a domain get auto-created company on first login.</div>
         </CardContent>
       </Card>
 

@@ -16,12 +16,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No database' }, { status: 500 });
   }
   try {
-    const rows = await rawSql.query('SELECT hcp_api_key FROM users WHERE id = $1 LIMIT 1', [user.userId]);
-    const key = await decryptApiKey(rows[0]?.hcp_api_key);
+    const companyRows = await rawSql.query('SELECT c.hcp_api_key FROM companies c JOIN users u ON u.company_id = c.id WHERE u.id = $1 LIMIT 1', [user.userId]);
+    const companyId = user.companyId;
+    const key = await decryptApiKey(companyRows[0]?.hcp_api_key);
     if (!key) {
       return NextResponse.json({ error: 'No HCP API key available' }, { status: 400 });
     }
-    const result = await syncHcpEstimates(key);
+    const result = await syncHcpEstimates(key, companyId || undefined);
     return NextResponse.json({ success: true, ...result });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
