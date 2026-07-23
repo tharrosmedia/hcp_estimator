@@ -215,6 +215,10 @@ BEGIN
     UPDATE companies SET hcp_api_key = (
       SELECT hcp_api_key FROM users WHERE hcp_api_key IS NOT NULL AND company_id = default_company_id LIMIT 1
     ) WHERE id = default_company_id AND hcp_api_key IS NULL;
+    -- Bootstrap: make the first user an admin for the default company
+    UPDATE users SET role = 'admin' 
+    WHERE id = (SELECT id FROM users ORDER BY id LIMIT 1) 
+      AND role <> 'admin';
   END IF;
 END $$;
  --> statement-breakpoint

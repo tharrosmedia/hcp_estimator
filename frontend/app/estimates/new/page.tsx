@@ -253,6 +253,10 @@ function NewEstimateWizardContent() {
     const todayStr = now.toISOString().slice(0, 10); // calendar date YYYY-MM-DD
     return estimates.filter((est: any) => {
       const sched = est.schedule?.scheduled_start;
+      if (estimateSearch) {
+        // when actively searching, show all server-matched results (across time)
+        return true;
+      }
       if (!sched) return false; // no unscheduled
       const d = new Date(sched);
       const dStr = d.toISOString().slice(0, 10);
@@ -265,7 +269,7 @@ function NewEstimateWizardContent() {
       if (filterMode === 'past') return isPast;
       return true; // all
     });
-  }, [estimates, filterMode]);
+  }, [estimates, filterMode, estimateSearch]);
 
   const handleNext = () => {
     if (step === 1) {

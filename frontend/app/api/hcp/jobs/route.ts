@@ -18,16 +18,12 @@ export async function GET(request: NextRequest) {
   const search = searchParams.get('search') || undefined;
 
   try {
-    // Prefer raw for key fetch (consistent with recent fixes)
+    // Get key from user's company (consistent with other routes)
     let key: string | null = null;
     if (rawSql) {
       const rows = await rawSql.query('SELECT c.hcp_api_key FROM companies c JOIN users u ON u.company_id = c.id WHERE u.id = $1 LIMIT 1', [user.userId]);
       key = await decryptApiKey(rows[0]?.hcp_api_key);
-    } else {
-      const [dbUser] = await db.select().from(users).where(eq(users.id, user.userId)).limit(1);
-      // fallback, may need company join but for now
-      key = await decryptApiKey(dbUser?.hcpApiKey);
-    }
+    } 
 
     if (!key) {
       // allow dev bypass

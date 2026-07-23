@@ -26,6 +26,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  if (!user.companyId) {
+    return NextResponse.json({ error: 'No company associated yet. Create or get assigned to a company first.' }, { status: 400 });
+  }
+
   const { hcpApiKey } = await request.json();
   if (!rawSql) {
     return NextResponse.json({ error: 'No database' }, { status: 500 });

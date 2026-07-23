@@ -126,8 +126,23 @@ export default function AdminPage() {
     if (!newCompanyName) return;
     try {
       await api.post('/admin/companies', { name: newCompanyName });
-      toast.success('Company created');
+      toast.success('Company created and you have been assigned as admin');
       setNewCompanyName('');
+      // refresh token from DB (new role/company)
+      const rt = localStorage.getItem('refreshToken');
+      if (rt) {
+        try {
+          const resp = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: rt }),
+          });
+          if (resp.ok) {
+            const d = await resp.json();
+            if (d.accessToken) localStorage.setItem('accessToken', d.accessToken);
+          }
+        } catch {}
+      }
       fetchData();
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Failed to create company');

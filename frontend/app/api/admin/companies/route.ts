@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!requireRole(user, ['admin'])) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
-  }
-
+  // Allow any logged-in user to list companies (needed for bootstrap / seeing own company)
   if (!rawSql) return NextResponse.json([]);
   const rows = await rawSql`SELECT id, name, created_at, updated_at FROM companies ORDER BY name`;
   // do not return keys
@@ -23,14 +20,22 @@ export async function POST(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
-  if (!requireRole(user, ['admin'])) {
-    return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+
+  if (!rawSql) return NextResponse.json({ error: 'No database' }, { status: 500 });
+
+  const userInfoRes = await rawSql`SELECT company_id, role FROM users WHERE id = ${user.userId} LIMIT 1`;
+  const hasCompany = !!userInfoRes[0]?.company_id;
+  const isAdmin = requireRole(user, ['admin']);
+
+  if (!isAdmin) {
+    if (hasCompany) {
+      return NextResponse.json({ error: 'Insufficient permissions' }, { status: 403 });
+    }
+    // unassigned user can create their own company (bootstrap)
   }
 
   const { name, hcpApiKey } = await request.json();
   if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 });
-
-  if (!rawSql) return NextResponse.json({ error: 'No database' }, { status: 500 });
 
   let keyToStore = null;
   if (hcpApiKey) {
@@ -42,5 +47,16 @@ export async function POST(request: NextRequest) {
     VALUES (${name}, ${keyToStore})
     RETURNING id, name, created_at, updated_at
   `;
-  return NextResponse.json(inserted[0], { status: 201 });
+  const newCompany = inserted[0];
+
+  // assign creator if they had no company, and promote to admin
+  if (!hasCompany) {
+    await rawSql`
+      UPDATE users SET company_id = ${newCompany.id}, role = 'admin', updated_at = NOW()
+      WHERE id = ${user.userId}
+    `;
+  }
+
+  return NextResponse.json(newCompany, { status: 201 });
+
 }
