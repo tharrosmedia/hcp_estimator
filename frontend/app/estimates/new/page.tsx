@@ -62,6 +62,8 @@ function NewEstimateWizardContent() {
     jobNotes: currentEstimate?.jobNotes || '',
     hcpJobId: currentEstimate?.hcpJobId || '',
     hcpEstimateId: currentEstimate?.hcpEstimateId || '',
+    selectedPayment: (currentEstimate?.selectedPayment || 'cash') as 'cash' | 'credit_card' | 'financing',
+    hcpOptionName: currentEstimate?.hcpOptionName || '',
   });
 
   const [matForm, setMatForm] = useState({ name: '', cost: 0, qty: 1 });
@@ -128,6 +130,8 @@ function NewEstimateWizardContent() {
               jobNotes: data.jobNotes || '',
               hcpJobId: data.hcpJobId || '',
               hcpEstimateId: data.hcpEstimateId || '',
+              selectedPayment: (data.selectedPayment || 'cash') as 'cash' | 'credit_card' | 'financing',
+              hcpOptionName: data.hcpOptionName || '',
             });
             setCurrentEstimate(data);
           }
@@ -165,6 +169,8 @@ function NewEstimateWizardContent() {
       taxRate,
       hcpJobId: customer.hcpJobId || undefined,
       hcpEstimateId: customer.hcpEstimateId || undefined,
+      selectedPayment: customer.selectedPayment || 'cash',
+      hcpOptionName: customer.hcpOptionName || undefined,
     };
     try {
       if (!savedEstimateId) {
@@ -241,7 +247,9 @@ function NewEstimateWizardContent() {
       jobNotes: '',
       hcpJobId: '',
       hcpEstimateId: est.id,
-    };
+      selectedPayment: customer.selectedPayment || 'cash',
+      hcpOptionName: customer.hcpOptionName || '',
+    } as any;
     setCustomer(updated);
     setEstimateSearch('');
     toast.success(`Selected ${est.customer?.name || est.id}`);
@@ -371,6 +379,7 @@ function NewEstimateWizardContent() {
         taxRate,
         hcpJobId: customer.hcpJobId || undefined,
         hcpEstimateId: customer.hcpEstimateId || undefined,
+        hcpOptionName: customer.hcpOptionName || undefined,
       };
 
       let targetId = savedEstimateId;
@@ -583,7 +592,7 @@ function NewEstimateWizardContent() {
               onUpdate={updateLabor}
             />
 
-            <p className="mt-3 text-xs text-muted-foreground">Labor is included in customer pricing. Using global rate: ${laborRate}/hr (set in Admin). Labor lines are not sent to HCP.</p>
+            <p className="mt-3 text-xs text-muted-foreground">Labor is included in customer pricing and sent to HCP (as line item(s) with tax baked into material prices). Using global rate: ${laborRate}/hr (set in Admin).</p>
 
             <div className="flex gap-2 mt-6">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
@@ -615,7 +624,21 @@ function NewEstimateWizardContent() {
               />
             </div>
 
-            <VariantDisplay variants={previewCalc.variants} grandTotal={previewCalc.grandTotal} />
+            <div className="mb-4">
+              <div className="text-xs text-muted-foreground mb-1">Label for HCP option (optional - overrides default based on payment choice)</div>
+              <Input
+                placeholder="e.g. Ductless Mini-Split Install"
+                value={customer.hcpOptionName || ''}
+                onChange={(e) => setCustomer({ ...customer, hcpOptionName: e.target.value })}
+              />
+            </div>
+
+            <VariantDisplay 
+              variants={previewCalc.variants} 
+              grandTotal={previewCalc.grandTotal} 
+              selectedType={customer.selectedPayment || 'cash'}
+              onSelect={(type) => setCustomer({ ...customer, selectedPayment: type as any })}
+            />
 
             <div className="flex gap-2 mt-6">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>

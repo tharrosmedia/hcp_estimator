@@ -89,6 +89,8 @@ export interface Estimate {
   jobNotes?: string | null;
   markup: number; // per-estimate override
   taxRate: number;
+  selectedPayment?: 'cash' | 'credit_card' | 'financing';
+  hcpOptionName?: string | null;
   status: EstimateStatus;
   hcpEstimateId?: string | null;
   hcpJobId?: string | null;

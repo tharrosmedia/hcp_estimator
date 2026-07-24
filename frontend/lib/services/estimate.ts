@@ -21,6 +21,8 @@ function mapEstimate(row: any): any {
     approvalFlag: row.approval_flag,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    selectedPayment: row.selected_payment || 'cash',
+    hcpOptionName: row.hcp_option_name,
   };
 }
 
@@ -85,7 +87,7 @@ export async function getEstimateById(id: number, userId?: number) {
 }
 
 export async function createEstimate(data: any, userId: number) {
-  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId, hcpEstimateId } = data;
+  const { customerName, customerEmail, customerPhone, jobAddress, jobNotes, materials, labor, markup, taxRate, hcpJobId, hcpEstimateId, selectedPayment = 'cash', hcpOptionName } = data;
   if (!rawSql) throw new Error('No database connection');
 
   const userRows = await rawSql`SELECT markup_override, company_id FROM users WHERE id = ${userId} LIMIT 1`;
@@ -99,8 +101,8 @@ export async function createEstimate(data: any, userId: number) {
   const effectiveTax = taxRate ?? parseFloat(String(taxVal));
 
   const estRows = await rawSql`
-    INSERT INTO estimates (company_id, user_id, customer_name, customer_email, customer_phone, job_address, job_notes, markup, tax_rate, status, approval_flag, hcp_job_id, hcp_estimate_id)
-    VALUES (${companyId}, ${userId}, ${customerName}, ${customerEmail || null}, ${customerPhone || null}, ${jobAddress || null}, ${jobNotes || null}, ${effectiveMarkup}, ${effectiveTax}, 'draft', false, ${hcpJobId || null}, ${hcpEstimateId || null})
+    INSERT INTO estimates (company_id, user_id, customer_name, customer_email, customer_phone, job_address, job_notes, markup, tax_rate, status, approval_flag, hcp_job_id, hcp_estimate_id, selected_payment, hcp_option_name)
+    VALUES (${companyId}, ${userId}, ${customerName}, ${customerEmail || null}, ${customerPhone || null}, ${jobAddress || null}, ${jobNotes || null}, ${effectiveMarkup}, ${effectiveTax}, 'draft', false, ${hcpJobId || null}, ${hcpEstimateId || null}, ${selectedPayment}, ${hcpOptionName || null})
     RETURNING *
   `;
   const estimate = mapEstimate(estRows[0]);
@@ -146,6 +148,8 @@ export async function updateEstimate(id: number, data: any, userId: number) {
   if (data.approvalFlag !== undefined) await rawSql`UPDATE estimates SET approval_flag = ${data.approvalFlag}, updated_at = NOW() WHERE id = ${id}`;
   if (data.hcpJobId !== undefined) await rawSql`UPDATE estimates SET hcp_job_id = ${data.hcpJobId}, updated_at = NOW() WHERE id = ${id}`;
   if (data.hcpEstimateId !== undefined) await rawSql`UPDATE estimates SET hcp_estimate_id = ${data.hcpEstimateId}, updated_at = NOW() WHERE id = ${id}`;
+  if (data.selectedPayment !== undefined) await rawSql`UPDATE estimates SET selected_payment = ${data.selectedPayment}, updated_at = NOW() WHERE id = ${id}`;
+  if (data.hcpOptionName !== undefined) await rawSql`UPDATE estimates SET hcp_option_name = ${data.hcpOptionName || null}, updated_at = NOW() WHERE id = ${id}`;
 
   const effectiveMarkup = data.markup ?? existing.markup ?? 0.4;
 
@@ -188,6 +192,8 @@ export async function duplicateEstimate(id: number, userId: number) {
     labor: original.labor,
     markup: original.markup,
     taxRate: original.taxRate,
+    selectedPayment: original.selectedPayment,
+    hcpOptionName: original.hcpOptionName,
   }, userId);
 
   return newEst;
@@ -205,21 +211,44 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
   const apiKey = await decryptApiKey(companyRows[0]?.hcp_api_key);
   if (!apiKey) throw new Error('Company has no HCP API key configured');
 
+  const ccFee = parseFloat(await getSetting('credit_card_fee', companyId) || '0.03');
+  const finFee = parseFloat(await getSetting('financing_fee', companyId) || '0.0499');
+  const selected = (estimate.selectedPayment || 'cash') as 'cash' | 'credit_card' | 'financing';
+  const feeRate = selected === 'credit_card' ? ccFee : selected === 'financing' ? finFee : 0;
+
   const noteContent = estimate.jobNotes || 'Generated from HCP Estimator';
 
   if (estimate.hcpEstimateId && hcpService.createHcpEstimateOption) {
-    const lineItems = (estimate.materials as any[]).map(m => ({
-      name: m.name,
-      description: m.description || '',
-      unit_price: Math.round(((m.sellingPrice || m.cost * (1 + (estimate.markup || 0))) / m.qty) * 100),
-      unit_cost: Math.round((m.cost || 0) * 100),
-      quantity: m.qty,
-      taxable: true,
-    }));
+    const taxRate = estimate.taxRate || 0;
+    const materialLines = (estimate.materials as any[]).map(m => {
+      const baseUnit = ((m.sellingPrice || m.cost * (1 + (estimate.markup || 0))) / m.qty);
+      const unitWithTaxAndFee = baseUnit * (1 + taxRate) * (1 + feeRate);
+      return {
+        name: m.name,
+        description: m.description || '',
+        unit_price: Math.round(unitWithTaxAndFee * 100),
+        unit_cost: Math.round((m.cost || 0) * 100),
+        quantity: m.qty,
+        taxable: false,
+      };
+    });
+    const laborLines = (estimate.labor as any[] || []).map(l => {
+      const cost = (l.cost || (l.hours * (l.rate || 0))) * (1 + feeRate);
+      return {
+        name: l.task || 'Labor',
+        description: '',
+        unit_price: Math.round(cost * 100),
+        unit_cost: 0,
+        quantity: 1,
+        taxable: false,
+      };
+    });
+    const lineItems = [...materialLines, ...laborLines];
+    const optionName = estimate.hcpOptionName || (selected === 'financing' ? 'Financing Option' : selected === 'credit_card' ? 'Credit Card Option' : 'Cash Option');
     const optionPayload = {
-      name: 'Option 1',
+      name: optionName,
       line_items: lineItems,
-      tax: { taxable: true, tax_rate: estimate.taxRate || 0.0825, tax_name: 'Sales Tax' },
+      tax: { taxable: false, tax_rate: 0, tax_name: 'Sales Tax' },
     };
     const result = await hcpService.createHcpEstimateOption(estimate.hcpEstimateId, optionPayload, apiKey);
     await rawSql`UPDATE estimates SET status = 'pushed_to_hcp', updated_at = NOW() WHERE id = ${estimateId}`;
@@ -233,6 +262,27 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
     return result;
   }
 
+  const sentItems = [
+    ...(estimate.materials as any[]).map(m => {
+      const baseUnit = (m.sellingPrice / m.qty);
+      const unitWithTaxAndFee = baseUnit * (1 + (estimate.taxRate || 0)) * (1 + feeRate);
+      return {
+        name: m.name,
+        description: m.description || '',
+        unitPrice: unitWithTaxAndFee,
+        quantity: m.qty,
+      };
+    }),
+    ...(estimate.labor as any[] || []).map(l => {
+      const cost = (l.cost || (l.hours * (l.rate || 0))) * (1 + feeRate);
+      return {
+        name: l.task || 'Labor',
+        description: '',
+        unitPrice: cost,
+        quantity: 1,
+      };
+    }),
+  ];
   const payload = {
     customer: {
       name: estimate.customerName,
@@ -241,12 +291,7 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
     },
     jobAddress: estimate.jobAddress || undefined,
     notes: estimate.jobNotes || undefined,
-    materials: (estimate.materials as any[]).map(m => ({
-      name: m.name,
-      description: m.description || '',
-      unitPrice: m.sellingPrice / m.qty,
-      quantity: m.qty,
-    })),
+    materials: sentItems,
     jobId: estimate.hcpJobId || undefined,
   };
 

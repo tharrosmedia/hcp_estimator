@@ -120,6 +120,12 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   ALTER TABLE estimates ADD CONSTRAINT IF NOT EXISTS estimates_company_id_companies_id_fk FOREIGN KEY (company_id) REFERENCES public.companies(id);
 EXCEPTION WHEN duplicate_object THEN null; END $$;
+DO $$ BEGIN
+  ALTER TABLE estimates ADD COLUMN IF NOT EXISTS selected_payment text DEFAULT 'cash';
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+DO $$ BEGIN
+  ALTER TABLE estimates ADD COLUMN IF NOT EXISTS hcp_option_name text;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
 
 -- Note: after running, re-save HCP key in Admin (now company level)
 -- Run the app to apply any remaining embedded migration.

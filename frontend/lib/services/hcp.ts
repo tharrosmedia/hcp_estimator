@@ -134,10 +134,10 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
         unit_price: Math.round((m.unitPrice || 0) * 100),
         unit_cost: 0,
         quantity: m.quantity,
-        taxable: true,
+        taxable: (m as any).taxable !== undefined ? (m as any).taxable : true,
       })),
       ...(payload.jobId ? { job_id: payload.jobId } : {}),
-      // Do NOT include labor
+      // includes labor (if any) as additional line items; tax baked into unit prices where applicable
     }, {
       headers: getHeaders(apiKey) as any,
     });
@@ -169,7 +169,7 @@ export async function updateHcpEstimate(estimateId: string, payload: CreateEstim
         unit_price: Math.round((m.unitPrice || 0) * 100),
         unit_cost: 0,
         quantity: m.quantity,
-        taxable: true,
+        taxable: (m as any).taxable !== undefined ? (m as any).taxable : true,
       })),
     }, {
       headers: getHeaders(apiKey) as any,

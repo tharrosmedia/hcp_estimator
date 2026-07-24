@@ -97,10 +97,14 @@ export default function EstimateDetail() {
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 gap-4 text-sm mb-4">
-            <div>Status: <span className="font-medium capitalize">{estimate.status.replace('_', ' ')}</span></div>
-            <div>Markup: {(estimate.markup * 100).toFixed(0)}%</div>
-            <div>Tax: {(estimate.taxRate * 100).toFixed(0)}%</div>
-            {estimate.hcpJobId && <div>HCP Job: <code className="text-xs">{estimate.hcpJobId}</code></div>}
+              <div>Status: <span className="font-medium capitalize">{estimate.status.replace('_', ' ')}</span></div>
+              <div>Markup: {(estimate.markup * 100).toFixed(0)}%</div>
+              <div>Tax: {(estimate.taxRate * 100).toFixed(0)}%</div>
+               {estimate.selectedPayment && <div>Chosen financing: <span className="font-medium">{estimate.selectedPayment}</span></div>}
+               {estimate.hcpOptionName && <div>HCP Option Label: <span className="font-medium">{estimate.hcpOptionName}</span></div>}
+ 
+             {estimate.hcpJobId && <div>HCP Job: <code className="text-xs">{estimate.hcpJobId}</code></div>}
+
             {estimate.hcpEstimateId && <div>HCP Estimate: <code className="text-xs">{estimate.hcpEstimateId}</code></div>}
           </div>
 
@@ -124,7 +128,7 @@ export default function EstimateDetail() {
 
           {preview && (
             <div className="mt-6">
-              <VariantDisplay variants={preview.variants} grandTotal={preview.grandTotal} />
+              <VariantDisplay variants={preview.variants} grandTotal={preview.grandTotal} selectedType={estimate.selectedPayment || 'cash'} />
               <div className="mt-2 text-sm text-muted-foreground">
                  Labor: ${preview.laborTotal?.toFixed(2)}
 
@@ -135,7 +139,7 @@ export default function EstimateDetail() {
       </Card>
 
       <div className="mt-4 text-xs text-center text-muted-foreground">
-        Labor is included in the total but labor lines are not sent to Housecall Pro.
+        Labor and tax are built into line item pricing sent to Housecall Pro (no separate tax shown to customer).
       </div>
     </div>
   );

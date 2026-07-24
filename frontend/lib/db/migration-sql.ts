@@ -44,6 +44,8 @@ CREATE TABLE IF NOT EXISTS "estimates" (
 	"hcp_estimate_id" text,
 	"hcp_job_id" text,
 	"approval_flag" boolean DEFAULT false NOT NULL,
+	"selected_payment" text DEFAULT 'cash' NOT NULL,
+	"hcp_option_name" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL
 );
@@ -299,8 +301,17 @@ EXCEPTION WHEN duplicate_object THEN null; END $$;
 DO $$ BEGIN
   ALTER TABLE estimates ADD CONSTRAINT estimates_company_id_companies_id_fk FOREIGN KEY (company_id) REFERENCES public.companies(id) ON DELETE no action ON UPDATE no action;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
- --> statement-breakpoint
+  --> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE estimates ADD COLUMN IF NOT EXISTS selected_payment text DEFAULT 'cash';
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+  --> statement-breakpoint
+DO $$ BEGIN
+  ALTER TABLE estimates ADD COLUMN IF NOT EXISTS hcp_option_name text;
+EXCEPTION WHEN duplicate_column THEN null; END $$;
+  --> statement-breakpoint
 
 -- Add company FK for estimates user if needed (already there)
- `.trim();
+  `.trim();
+
 
