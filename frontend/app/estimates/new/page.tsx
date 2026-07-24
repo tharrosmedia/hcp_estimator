@@ -482,7 +482,7 @@ function NewEstimateWizardContent() {
 
               {/* One table/list - adjusted by search + filterMode */}
               {visibleEstimates.length > 0 && (
-                <div className="border rounded max-h-48 overflow-auto text-sm mb-3">
+                <div className="border rounded max-h-48 overflow-auto text-sm mb-3 scrollbar">
                   {visibleEstimates.map((est, i) => (
                     <div
                       key={i}

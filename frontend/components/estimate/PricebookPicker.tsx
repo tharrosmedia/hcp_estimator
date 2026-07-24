@@ -39,7 +39,7 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
           className="mb-2"
         />
         {search && filtered.length > 0 && (
-          <div className="border rounded max-h-40 overflow-auto text-sm">
+          <div className="border rounded max-h-40 overflow-auto text-sm scrollbar">
               {filtered.map((item: any, i: number) => (
                 <div
                   key={i}

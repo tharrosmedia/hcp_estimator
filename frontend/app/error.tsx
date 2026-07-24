@@ -19,11 +19,11 @@ export default function Error({
       <div className="max-w-2xl w-full bg-white p-6 rounded shadow">
         <h2 className="text-2xl font-bold text-red-600 mb-4">Internal Server Error (caught)</h2>
         <p className="mb-2">Message:</p>
-        <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto mb-4">{error.message}</pre>
+        <pre className="bg-gray-100 p-3 rounded text-sm overflow-auto mb-4 scrollbar">{error.message}</pre>
         {error.stack && (
           <>
             <p className="mb-2">Stack:</p>
-            <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-64 mb-4">{error.stack}</pre>
+            <pre className="bg-gray-100 p-3 rounded text-xs overflow-auto max-h-64 mb-4 scrollbar">{error.stack}</pre>
           </>
         )}
         {error.digest && <p className="text-xs text-muted">Digest: {error.digest}</p>}
