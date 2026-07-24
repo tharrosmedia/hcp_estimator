@@ -218,7 +218,9 @@ export async function createHcpEstimateOption(
       console.warn('HCP create option mock success');
       return { id: 'mock-opt-' + Date.now(), status: 'created' };
     }
-    throw new Error(`Failed to create HCP estimate option: ${err.message}`);
+    const respData = err.response?.data;
+    const details = respData ? (typeof respData === 'string' ? respData : JSON.stringify(respData)) : '';
+    throw new Error(`Failed to create HCP estimate option: ${err.message}${details ? ' - ' + details : ''}`);
   }
 }
 
