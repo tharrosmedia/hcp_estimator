@@ -68,7 +68,8 @@ function NewEstimateWizardContent() {
 
   const laborRate = parseFloat(globals.labor_rate || globals.laborRate || '75');
   const [labForm, setLabForm] = useState({ task: 'Install', hours: 2, rate: 75 });
-
+  const [showLaborForm, setShowLaborForm] = useState(false);
+ 
   useEffect(() => {
     if (laborRate && labForm.rate !== laborRate) {
       setLabForm(f => ({ ...f, rate: laborRate }));
@@ -551,27 +552,35 @@ function NewEstimateWizardContent() {
         <Card>
           <CardHeader><CardTitle>3. Labor (auto hours from install rules + global rate)</CardTitle></CardHeader>
           <CardContent>
-            <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
-              <div className="flex-1">Task</div>
-              <div className="w-20 text-center">Hours</div>
-              <div className="w-20 text-center">Rate $/hr</div>
-              <div className="w-12" />
-            </div>
-            <div className="flex gap-2 mb-3">
-              <Input placeholder="Task" value={labForm.task} onChange={e => setLabForm({ ...labForm, task: e.target.value })} className="flex-1" />
-              <Input type="number" placeholder="Hours" value={labForm.hours} onChange={e => setLabForm({ ...labForm, hours: parseFloat(e.target.value) || 0 })} className="w-20" />
-              <Input type="number" placeholder="Rate $/hr" value={labForm.rate} onChange={e => setLabForm({ ...labForm, rate: parseFloat(e.target.value) || laborRate })} className="w-20" />
-              <Button onClick={handleAddLabor}>Add</Button>
-            </div>
-
             <LaborList
               labor={currentEstimate?.labor || []}
               onRemove={removeLabor}
               onUpdate={updateLabor}
             />
-
+ 
+            {showLaborForm ? (
+              <>
+                <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1 mt-4">
+                  <div className="flex-1">Task</div>
+                  <div className="w-20 text-center">Hours</div>
+                  <div className="w-20 text-center">Rate $/hr</div>
+                  <div className="w-12" />
+                </div>
+                <div className="flex gap-2 mb-3">
+                  <Input placeholder="Task" value={labForm.task} onChange={e => setLabForm({ ...labForm, task: e.target.value })} className="flex-1" />
+                  <Input type="number" placeholder="Hours" value={labForm.hours} onChange={e => setLabForm({ ...labForm, hours: parseFloat(e.target.value) || 0 })} className="w-20" />
+                  <Input type="number" placeholder="Rate $/hr" value={labForm.rate} onChange={e => setLabForm({ ...labForm, rate: parseFloat(e.target.value) || laborRate })} className="w-20" />
+                  <Button onClick={handleAddLabor}>Add</Button>
+                </div>
+              </>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => setShowLaborForm(true)} className="mt-3">
+                Add custom line item
+              </Button>
+            )}
+ 
             <p className="mt-3 text-xs text-muted-foreground">Labor is included in customer pricing and sent to HCP (as line item(s) with tax baked into material prices). Using global rate: ${laborRate}/hr (set in Admin).</p>
-
+ 
             <div className="flex gap-2 mt-6">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
               <Button onClick={handleNext} className="flex-1 btn-large">Next: Review</Button>
