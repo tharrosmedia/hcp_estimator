@@ -66,7 +66,6 @@ function NewEstimateWizardContent() {
     hcpOptionName: currentEstimate?.hcpOptionName || '',
   });
 
-  const [matForm, setMatForm] = useState({ name: '', cost: 0, qty: 1 });
   const laborRate = parseFloat(globals.labor_rate || globals.laborRate || '75');
   const [labForm, setLabForm] = useState({ task: 'Install', hours: 2, rate: 75 });
 
@@ -320,12 +319,6 @@ function NewEstimateWizardContent() {
     autoAddLaborForMaterial(name);
   };
 
-  const handleAddMaterial = () => {
-    if (!matForm.name || matForm.cost <= 0) return;
-    handleAddCustomMaterial(matForm.name, matForm.cost, matForm.qty);
-    setMatForm({ name: '', cost: 0, qty: 1 });
-  };
-
   const handleAddLabor = () => {
     if (!labForm.task) return;
     const cost = labForm.hours * labForm.rate;
@@ -531,21 +524,6 @@ function NewEstimateWizardContent() {
               onSelect={handleAddFromPricebook}
               onCustomAdd={handleAddCustomMaterial}
             />
-
-            <div className="my-4">
-                <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
-                  <div className="flex-1">Custom name</div>
-                  <div className="w-24 text-center">Cost</div>
-                  <div className="w-16 text-center">Qty</div>
-                  <div className="w-12" />
-                </div>
-              <div className="flex gap-2 mb-2">
-                <Input placeholder="Custom name" value={matForm.name} onChange={e => setMatForm({ ...matForm, name: e.target.value })} className="flex-1" />
-                <Input type="number" placeholder="Cost" value={matForm.cost} onChange={e => setMatForm({ ...matForm, cost: parseFloat(e.target.value) || 0 })} className="w-24" />
-                <Input type="number" placeholder="Qty" value={matForm.qty} onChange={e => setMatForm({ ...matForm, qty: parseFloat(e.target.value) || 1 })} className="w-16" />
-                <Button onClick={handleAddMaterial}>Add</Button>
-              </div>
-            </div>
 
             <MaterialList
               materials={currentEstimate?.materials || []}

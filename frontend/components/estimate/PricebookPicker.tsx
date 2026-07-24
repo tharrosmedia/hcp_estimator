@@ -13,6 +13,7 @@ interface PricebookPickerProps {
 
 export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookPickerProps) {
   const [search, setSearch] = useState('');
+  const [showCustom, setShowCustom] = useState(false);
   const [customName, setCustomName] = useState('');
   const [customCost, setCustomCost] = useState(0);
   const [customQty, setCustomQty] = useState(1);
@@ -61,21 +62,22 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
         )}
       </div>
 
-      <div className="border-t pt-4">
-        <div className="text-sm font-medium mb-2">Or add custom item</div>
+      {showCustom ? (
+        <div className="border-t pt-4">
+          <div className="text-sm font-medium mb-2">Add custom item</div>
           <div className="text-xs text-muted-foreground flex gap-2 mb-1 px-1">
             <div className="flex-1">Item name</div>
             <div className="w-24 text-center">Cost</div>
             <div className="w-16 text-center">Qty</div>
             <div className="w-12" />
           </div>
-        <div className="flex gap-2">
-          <Input
-            placeholder="Item name"
-            value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
-            className="flex-1"
-          />
+          <div className="flex gap-2">
+            <Input
+              placeholder="Item name"
+              value={customName}
+              onChange={(e) => setCustomName(e.target.value)}
+              className="flex-1"
+            />
             <Input
               type="number"
               placeholder="Cost"
@@ -83,27 +85,32 @@ export function PricebookPicker({ pricebook, onSelect, onCustomAdd }: PricebookP
               onChange={(e) => setCustomCost(parseFloat(e.target.value) || 0)}
               className="w-24"
             />
-          <Input
-            type="number"
-            placeholder="Qty"
-            value={customQty}
-            onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
-            className="w-16"
-          />
-          <Button
-            onClick={() => {
-              if (customName && customCost > 0) {
-                onCustomAdd(customName, customCost, customQty);
-                setCustomName('');
-                setCustomCost(0);
-                setCustomQty(1);
-              }
-            }}
-          >
-            Add
-          </Button>
+            <Input
+              type="number"
+              placeholder="Qty"
+              value={customQty}
+              onChange={(e) => setCustomQty(parseFloat(e.target.value) || 1)}
+              className="w-16"
+            />
+            <Button
+              onClick={() => {
+                if (customName && customCost > 0) {
+                  onCustomAdd(customName, customCost, customQty);
+                  setCustomName('');
+                  setCustomCost(0);
+                  setCustomQty(1);
+                }
+              }}
+            >
+              Add
+            </Button>
+          </div>
         </div>
-      </div>
+      ) : (
+        <Button variant="outline" size="sm" onClick={() => setShowCustom(true)}>
+          Add custom item
+        </Button>
+      )}
     </div>
   );
 }
