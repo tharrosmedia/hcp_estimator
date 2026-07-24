@@ -73,6 +73,7 @@ input, button, select, textarea {
 .scrollbar {
   scrollbar-width: thin;
   scrollbar-color: var(--primary) var(--muted);
+  scrollbar-gutter: stable;
 }
 
 .scrollbar::-webkit-scrollbar {
@@ -97,6 +98,7 @@ input, button, select, textarea {
 /* Dark mode support */
 .dark .scrollbar {
   scrollbar-color: #64748b #334155;
+  scrollbar-gutter: stable;
 }
 
 .dark .scrollbar::-webkit-scrollbar-track {
