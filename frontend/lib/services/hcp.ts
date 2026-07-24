@@ -137,7 +137,7 @@ export async function createHcpEstimate(payload: CreateEstimatePayload, apiKey: 
         taxable: (m as any).taxable !== undefined ? (m as any).taxable : true,
       })),
       ...(payload.jobId ? { job_id: payload.jobId } : {}),
-      // includes labor (if any) as additional line items; tax baked into unit prices where applicable
+      // labor baked into material line items (by caller); tax (on materials only) baked into unit prices
     }, {
       headers: getHeaders(apiKey) as any,
     });

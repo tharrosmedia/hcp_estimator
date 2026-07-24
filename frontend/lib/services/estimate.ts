@@ -199,6 +199,40 @@ export async function duplicateEstimate(id: number, userId: number) {
   return newEst;
 }
 
+function allocateLaborToMaterials(materials: any[], allLabor: any[]): number[] {
+  const laborCosts = new Array(materials.length).fill(0);
+  const labors = allLabor || [];
+  const used = new Array(labors.length).fill(false);
+
+  materials.forEach((m, i) => {
+    const short = (m.name || '').split(/[-_\s]/)[0].toLowerCase();
+    labors.forEach((l, j) => {
+      if (used[j]) return;
+      const task = (l.task || '').toLowerCase().replace(/^install\s+/, '');
+      const taskShort = task.split(/[-_\s]/)[0];
+      if (short === taskShort || short.includes(taskShort) || taskShort.includes(short)) {
+        laborCosts[i] += (l.cost || (l.hours || 0) * (l.rate || 0));
+        used[j] = true;
+      }
+    });
+  });
+
+  // distribute any unmatched labor proportionally by qty
+  let remaining = 0;
+  labors.forEach((l, j) => {
+    if (!used[j]) remaining += (l.cost || (l.hours || 0) * (l.rate || 0));
+  });
+  if (remaining > 0 && materials.length > 0) {
+    const totalQty = materials.reduce((sum, m) => sum + (m.qty || 1), 0) || 1;
+    materials.forEach((m, i) => {
+      const share = ((m.qty || 1) / totalQty) * remaining;
+      laborCosts[i] += share;
+    });
+  }
+
+  return laborCosts;
+}
+
 export async function pushToHcp(estimateId: number, userId: number, hcpService: { createHcpEstimate: any; updateHcpEstimate?: any; createHcpEstimateOption?: any; createHcpOptionNote?: any }) {
   const estimate = await getEstimateById(estimateId, userId);
   if (!estimate) throw new Error('Estimate not found');
@@ -220,9 +254,13 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
 
   if (estimate.hcpEstimateId && hcpService.createHcpEstimateOption) {
     const taxRate = estimate.taxRate || 0;
-    const materialLines = (estimate.materials as any[]).map(m => {
+    const laborCosts = allocateLaborToMaterials(estimate.materials as any[], estimate.labor as any[]);
+    const materialLines = (estimate.materials as any[]).map((m, i) => {
       const perUnit = m.sellingPrice ? (m.sellingPrice / m.qty) : (m.cost * (1 + (estimate.markup || 0)));
-      const unitWithTaxAndFee = perUnit * (1 + taxRate) * (1 + feeRate);
+      const laborPerUnit = laborCosts[i] / (m.qty || 1);
+      // tax only on material; labor added untaxed, then fee on combined
+      const matWithTax = perUnit * (1 + taxRate);
+      const unitWithTaxAndFee = (matWithTax + laborPerUnit) * (1 + feeRate);
       return {
         name: m.name,
         description: m.description || '',
@@ -232,23 +270,12 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
         taxable: false,
       };
     });
-    const laborLines = (estimate.labor as any[] || []).map(l => {
-      const cost = (l.cost || (l.hours * (l.rate || 0))) * (1 + feeRate);
-      return {
-        name: l.task || 'Labor',
-        description: '',
-        unit_price: Math.round(cost * 100),
-        unit_cost: 0,
-        quantity: 1,
-        taxable: false,
-      };
-    });
-    const lineItems = [...materialLines, ...laborLines];
+    const lineItems = materialLines;
     const optionName = estimate.hcpOptionName || (selected === 'financing' ? 'Financing Option' : selected === 'credit_card' ? 'Credit Card Option' : 'Cash Option');
     const optionPayload: any = {
       name: optionName,
       line_items: lineItems,
-      // tax is baked into the unit prices; lines are marked taxable:false so HCP does not add extra tax
+      // tax (on materials only) and labor baked into unit prices; taxable:false so HCP does not add extra tax
     };
     const result = await hcpService.createHcpEstimateOption(estimate.hcpEstimateId, optionPayload, apiKey);
     await rawSql`UPDATE estimates SET status = 'pushed_to_hcp', updated_at = NOW() WHERE id = ${estimateId}`;
@@ -262,29 +289,21 @@ export async function pushToHcp(estimateId: number, userId: number, hcpService: 
     return result;
   }
 
-  const sentItems = [
-    ...(estimate.materials as any[]).map(m => {
-      const baseUnit = (m.sellingPrice / m.qty);
-      const unitWithTaxAndFee = baseUnit * (1 + (estimate.taxRate || 0)) * (1 + feeRate);
-      return {
-        name: m.name,
-        description: m.description || '',
-        unitPrice: unitWithTaxAndFee,
-        quantity: m.qty,
-        taxable: false,
-      };
-    }),
-    ...(estimate.labor as any[] || []).map(l => {
-      const cost = (l.cost || (l.hours * (l.rate || 0))) * (1 + feeRate);
-      return {
-        name: l.task || 'Labor',
-        description: '',
-        unitPrice: cost,
-        quantity: 1,
-        taxable: false,
-      };
-    }),
-  ];
+  const laborCosts = allocateLaborToMaterials(estimate.materials as any[], estimate.labor as any[]);
+  const sentItems = (estimate.materials as any[]).map((m, i) => {
+    const baseUnit = m.sellingPrice ? (m.sellingPrice / m.qty) : (m.cost * (1 + (estimate.markup || 0)));
+    const laborPerUnit = laborCosts[i] / (m.qty || 1);
+    // tax only on material; labor added untaxed, then fee on combined
+    const matWithTax = baseUnit * (1 + (estimate.taxRate || 0));
+    const unitWithTaxAndFee = (matWithTax + laborPerUnit) * (1 + feeRate);
+    return {
+      name: m.name,
+      description: m.description || '',
+      unitPrice: unitWithTaxAndFee,
+      quantity: m.qty,
+      taxable: false,
+    };
+  });
   const payload = {
     customer: {
       name: estimate.customerName,

@@ -139,7 +139,7 @@ export default function EstimateDetail() {
       </Card>
 
       <div className="mt-4 text-xs text-center text-muted-foreground">
-        Labor and tax are built into line item pricing sent to Housecall Pro (no separate tax shown to customer).
+        Labor costs are added to material line item pricing sent to Housecall Pro (tax only on materials; no separate labor lines).
       </div>
     </div>
   );

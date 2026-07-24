@@ -579,7 +579,7 @@ function NewEstimateWizardContent() {
               </Button>
             )}
  
-            <p className="mt-3 text-xs text-muted-foreground">Labor is included in customer pricing and sent to HCP (as line item(s) with tax baked into material prices). Using global rate: ${laborRate}/hr (set in Admin).</p>
+            <p className="mt-3 text-xs text-muted-foreground">Labor costs are added to associated material prices sent to HCP (tax only on materials). Using global rate: ${laborRate}/hr (set in Admin).</p>
  
             <div className="flex gap-2 mt-6">
               <Button variant="outline" onClick={handleBack} className="flex-1">Back</Button>
