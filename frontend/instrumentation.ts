@@ -1,13 +1,8 @@
-import { db } from './lib/db';
 import { seedDefaultRules } from './lib/db/seed';
 import { syncPricebook } from './lib/services/pricebook';
 import { syncHcpEstimates } from './lib/services/hcp';
-import { db as schemaDb, users } from './lib/db';
-import { eq } from 'drizzle-orm';
 import { neon } from '@neondatabase/serverless';
 import cron from 'node-cron';
-import path from 'path';
-import fs from 'fs';
 import { migration0000 } from './lib/db/migration-sql';
 // Cron prioritizes saved user HCP key (decrypted) with HCP_SYNC_KEY only as fallback. Recreate client inside callback for safety.
 
@@ -26,7 +21,7 @@ export async function register() {
     if (rawSql) {
       for (const stmt of statements) {
         try {
-          await rawSql.query(stmt);
+          await rawSql.unsafe(stmt);
         } catch (stmtErr: any) {
           // Ignore duplicate table / constraint errors (IF NOT EXISTS + DO blocks)
           if (!/already exists|duplicate_object/i.test(String(stmtErr?.message || stmtErr))) {
@@ -66,7 +61,7 @@ export async function register() {
           if (connectionString) {
             const { neon } = await import('@neondatabase/serverless');
             const sql = neon(connectionString);
-            companyRows = await sql.query('SELECT id, hcp_api_key FROM companies WHERE hcp_api_key IS NOT NULL');
+            companyRows = await sql`SELECT id, hcp_api_key FROM companies WHERE hcp_api_key IS NOT NULL`;
             const { decryptApiKey } = await import('./lib/encrypt');
             for (const c of companyRows) {
               const key = await decryptApiKey(c.hcp_api_key);

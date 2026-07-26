@@ -438,23 +438,22 @@ export async function syncHcpEstimates(apiKey: string, companyId?: number): Prom
     const start = sched.scheduled_start ? new Date(sched.scheduled_start) : null;
     const end = sched.scheduled_end ? new Date(sched.scheduled_end) : null;
 
-    await rawSql.query(
-      'INSERT INTO hcp_estimates (company_id, hcp_id, estimate_number, work_status, customer_name, customer_email, customer_phone, address, scheduled_start, scheduled_end, status, notes, last_synced_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW()) ON CONFLICT (company_id, hcp_id) DO UPDATE SET estimate_number = EXCLUDED.estimate_number, work_status = EXCLUDED.work_status, customer_name = EXCLUDED.customer_name, customer_email = EXCLUDED.customer_email, customer_phone = EXCLUDED.customer_phone, address = EXCLUDED.address, scheduled_start = EXCLUDED.scheduled_start, scheduled_end = EXCLUDED.scheduled_end, status = EXCLUDED.status, notes = EXCLUDED.notes, last_synced_at = NOW()',
-      [
-        companyId,
-        est.id,
-        est.estimate_number || null,
-        est.work_status || null,
-        est.customer?.name || null,
-        est.customer?.email || null,
-        est.customer?.phone || null,
-        est.address || null,
-        start,
-        end,
-        est.status || null,
-        est.notes || null,
-      ]
-    );
+    await rawSql`
+      INSERT INTO hcp_estimates (company_id, hcp_id, estimate_number, work_status, customer_name, customer_email, customer_phone, address, scheduled_start, scheduled_end, status, notes, last_synced_at)
+      VALUES (${companyId}, ${est.id}, ${est.estimate_number || null}, ${est.work_status || null}, ${est.customer?.name || null}, ${est.customer?.email || null}, ${est.customer?.phone || null}, ${est.address || null}, ${start}, ${end}, ${est.status || null}, ${est.notes || null}, NOW())
+      ON CONFLICT (company_id, hcp_id) DO UPDATE SET
+        estimate_number = EXCLUDED.estimate_number,
+        work_status = EXCLUDED.work_status,
+        customer_name = EXCLUDED.customer_name,
+        customer_email = EXCLUDED.customer_email,
+        customer_phone = EXCLUDED.customer_phone,
+        address = EXCLUDED.address,
+        scheduled_start = EXCLUDED.scheduled_start,
+        scheduled_end = EXCLUDED.scheduled_end,
+        status = EXCLUDED.status,
+        notes = EXCLUDED.notes,
+        last_synced_at = NOW()
+    `;
     synced++;
   }
 

@@ -27,10 +27,19 @@ export async function syncPricebook(apiKey: string, companyId?: number): Promise
   for (const item of items) {
     if (!item.hcpId) continue;
 
-    await rawSql.query(
-      'INSERT INTO pricebook_items (company_id, hcp_id, name, description, cost, category, unit, lineset_ft, lineset_cost, last_synced_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) ON CONFLICT (company_id, hcp_id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description, cost = EXCLUDED.cost, category = EXCLUDED.category, unit = EXCLUDED.unit, lineset_ft = EXCLUDED.lineset_ft, lineset_cost = EXCLUDED.lineset_cost, last_synced_at = NOW()',
-      [companyId, item.hcpId, item.name, item.description, item.cost, item.category, item.unit, item.linesetFt, item.linesetCost]
-    );
+    await rawSql`
+      INSERT INTO pricebook_items (company_id, hcp_id, name, description, cost, category, unit, lineset_ft, lineset_cost, last_synced_at)
+      VALUES (${companyId}, ${item.hcpId}, ${item.name}, ${item.description}, ${item.cost}, ${item.category}, ${item.unit}, ${item.linesetFt}, ${item.linesetCost}, NOW())
+      ON CONFLICT (company_id, hcp_id) DO UPDATE SET
+        name = EXCLUDED.name,
+        description = EXCLUDED.description,
+        cost = EXCLUDED.cost,
+        category = EXCLUDED.category,
+        unit = EXCLUDED.unit,
+        lineset_ft = EXCLUDED.lineset_ft,
+        lineset_cost = EXCLUDED.lineset_cost,
+        last_synced_at = NOW()
+    `;
     synced++;
   }
 

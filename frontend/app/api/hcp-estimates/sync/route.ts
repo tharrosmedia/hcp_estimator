@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No database' }, { status: 500 });
   }
   try {
-    const companyRows = await rawSql.query('SELECT c.hcp_api_key FROM companies c JOIN users u ON u.company_id = c.id WHERE u.id = $1 LIMIT 1', [user.userId]);
+    const companyRows = await rawSql`SELECT c.hcp_api_key FROM companies c JOIN users u ON u.company_id = c.id WHERE u.id = ${user.userId} LIMIT 1`;
     const companyId = user.companyId;
     const key = await decryptApiKey(companyRows[0]?.hcp_api_key);
     if (!key) {
